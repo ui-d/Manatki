@@ -10,8 +10,20 @@ import { getDb, schema } from "../server/db/index.js";
 import { notifyClients } from "../server/handlers/decks.js";
 import { getDeckUrl } from "./_app-url.js";
 
+/** Absolute http(s) URL or a site-relative path ("/uploads/…"), never
+ * protocol-relative — these values end up in stored slide HTML. */
+const hostedUrl = z
+  .string()
+  .min(1)
+  .refine(
+    (value) =>
+      /^https?:\/\//i.test(value) ||
+      (value.startsWith("/") && !value.startsWith("//")),
+    "Must be an absolute http(s) URL or a site-relative path",
+  );
+
 const ImageSchema = z.object({
-  url: z.string().min(1).describe("Hosted URL of the slide image"),
+  url: hostedUrl.describe("Hosted URL of the slide image"),
   name: z
     .string()
     .min(1)
@@ -19,17 +31,26 @@ const ImageSchema = z.object({
       "Original filename; slides are ordered by natural sort of these names",
     ),
   screenshots: z
-    .array(z.object({ url: z.string().min(1), name: z.string().min(1) }))
+    .array(z.object({ url: hostedUrl, name: z.string().min(1) }))
     .optional()
     .describe(
       "Supporting screenshots for this slide, shown as a grid in the presenter",
     ),
 });
 
+/** Escape HTML attribute special characters — same convention as
+ * server/handlers/import/html-converter.ts. */
+const esc = (text: string) =>
+  text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
 /** Full-bleed wrapper so image slides keep working in the editor, share
  * views and exports, which all render slide `content` HTML. */
 const imageSlideContent = (url: string) =>
-  `<div class="fmd-slide" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #0b0b0c;"><img src="${url}" alt="" style="max-width: 100%; max-height: 100%; object-fit: contain;" /></div>`;
+  `<div class="fmd-slide" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #0b0b0c;"><img src="${esc(url)}" alt="" style="max-width: 100%; max-height: 100%; object-fit: contain;" /></div>`;
 
 const naturalCompare = (a: string, b: string) =>
   a.localeCompare(b, undefined, { numeric: true });

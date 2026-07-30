@@ -70,6 +70,7 @@ async function generateWithOpenAI(
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
     }),
+    signal: AbortSignal.timeout(120_000),
   });
   if (!response.ok) {
     const detail = await response.text().catch(() => "");

@@ -163,19 +163,6 @@ export default function PresenterStage({
     );
   }, []);
 
-  const goTo = useCallback(
-    (next: number) => {
-      setIndex((current) => {
-        const clamped = Math.min(
-          Math.max(next, 0),
-          Math.max(entries.length - 1, 0),
-        );
-        return clamped;
-      });
-    },
-    [entries.length],
-  );
-
   /* has-next / on-plain / has-shots are classList toggles rather than JSX
      className: has-shots is flipped imperatively by the grid choreography and
      a React-rendered className would wipe it on every commit. */
@@ -364,7 +351,10 @@ export default function PresenterStage({
                 loaded={loadedRef.current.has(i)}
                 withGlass={withGlass}
                 aspectRatio={aspectRatio}
-                onImageLoad={i === 0 && isImageDeck ? adoptRatio : undefined}
+                // Any pane may report the ratio — adoptRatio locks after the
+                // first, so deep links past slide 1 still adopt the deck's
+                // real proportions instead of the CSS default.
+                onImageLoad={isImageDeck ? adoptRatio : undefined}
               />
             ))}
           </div>
