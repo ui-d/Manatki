@@ -1,5 +1,7 @@
 # Slideshow
 
+**Live app: [slideshow-app-uids-projects-f4e05740.vercel.app](https://slideshow-app-uids-projects-f4e05740.vercel.app)**
+
 An open-source, agent-native presentation app. Generate decks from a prompt with
 your own OpenAI API key, edit slides visually or from chat, drop in a folder of
 images as a ready-to-present deck, and present with a distinctive two-pane
