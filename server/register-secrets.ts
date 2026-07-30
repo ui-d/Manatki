@@ -47,7 +47,7 @@ registerRequiredSecret({
   key: "OPENAI_API_KEY",
   label: "OpenAI API Key",
   description:
-    "Required for image generation with gpt-image-2. Excellent text rendering and photorealistic output.",
+    "Your personal OpenAI key, used for slide generation (GPT-5.6) and image generation (gpt-image-2). Stored encrypted, only used for your own decks.",
   docsUrl: "https://platform.openai.com/api-keys",
   scope: "user",
   kind: "api-key",
