@@ -47,7 +47,7 @@ export default function Presentation() {
     };
   }, [contextDeck, id, loading]);
 
-  if (!id) return <Navigate to="/" replace />;
+  if (!id) return <Navigate to="/decks" replace />;
   // "Not fetched yet" is not "not found": on a cold load of this URL the deck
   // context is empty and the fallback fetch has not run, so redirecting on a
   // falsy deck bounced every direct/presenter/share link back to the index.
@@ -55,7 +55,7 @@ export default function Presentation() {
     return <div className="h-screen bg-black" />;
   }
   if (!deck) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/decks" replace />;
   }
   // Social-asset projects have no presenter flow (mixed canvas sizes) —
   // bounce deep links back to the editor.

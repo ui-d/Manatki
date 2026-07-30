@@ -67,7 +67,6 @@ import { exportDeckToGoogleSlides } from "@/lib/export-google-slides-client";
 import { exportDeckAsPdf } from "@/lib/export-pdf-client";
 import { exportSlideAsPng, exportSlidesAsZip } from "@/lib/export-png-client";
 import { exportDeckAsPptx } from "@/lib/export-pptx-client";
-import { getSlideDims, isUniformSize } from "@/lib/slide-size";
 import {
   shouldClearNewDeckGeneratingState,
   shouldShowNewDeckGeneratingOverlay,
@@ -79,6 +78,7 @@ import {
   insertImageIntoSlideHtml,
   replaceImageTargetInSlideHtml,
 } from "@/lib/slide-image-replacement";
+import { getSlideDims, isUniformSize } from "@/lib/slide-size";
 import { TAB_ID } from "@/lib/tab-id";
 import { shouldActivateTextTool } from "@/lib/text-tool-shortcut";
 import { shortcutLabel } from "@/lib/utils";
@@ -839,7 +839,7 @@ export default function DeckEditor() {
         orgError={orgError}
         refreshing={retryingMissingDeck}
         onRetry={() => void retryOpenDeck()}
-        onBack={() => navigate("/")}
+        onBack={() => navigate("/decks")}
       />
     );
   }
@@ -993,9 +993,7 @@ export default function DeckEditor() {
         }
         onExportPngCurrent={async () => {
           if (!currentSlide) return;
-          const index = deck.slides.findIndex(
-            (s) => s.id === currentSlide.id,
-          );
+          const index = deck.slides.findIndex((s) => s.id === currentSlide.id);
           const dims = getSlideDims(currentSlide, deck.aspectRatio);
           await exportSlideAsPng(
             deck.title,

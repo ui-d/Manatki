@@ -35,10 +35,8 @@ import type { LinksFunction } from "react-router";
 import { Layout as AppLayout } from "@/components/layout/Layout";
 import { AppToolkitProvider } from "@/components/ui/toolkit-provider";
 import { DeckProvider } from "@/context/DeckContext";
-import { useHomeGate } from "@/hooks/use-home-gate";
 import { useNavigationState } from "@/hooks/use-navigation-state";
 import { TAB_ID } from "@/lib/tab-id";
-import Landing, { LandingSplash } from "@/pages/Landing";
 
 import changelog from "../CHANGELOG.md?raw";
 import { i18nCatalog } from "./i18n";
@@ -58,11 +56,14 @@ const BARE_ROUTES = new Set(["/slide"]);
 const BARE_PREFIXES = ["/share/", "/p/"];
 /**
  * Public routes that render outside the providers entirely — no query client,
- * no session gate, fully server-rendered. The landing page needs none of the
- * workspace runtime, and rendering it standalone keeps it crawlable and
- * instant for visitors who have never signed in.
+ * no session gate, no workspace runtime.
+ *
+ * `/` is the marketing home page and needs none of that. Keeping it out here
+ * is also what makes it fully server-rendered: inside `AppProviders` it would
+ * be wrapped in `ClientOnly` and ship a spinner to crawlers, and its mounted
+ * workspace hooks would fire a burst of 401s for every signed-out visitor.
  */
-const STANDALONE_ROUTES = new Set(["/welcome"]);
+const STANDALONE_ROUTES = new Set(["/"]);
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
@@ -200,14 +201,6 @@ function AppContent() {
   const navigate = useNavigate();
   useCommandMenuShortcut(useCallback(() => setCmdkOpen(true), []));
   const location = useLocation();
-  const homeGate = useHomeGate();
-
-  // `/` is two surfaces: the public landing page for visitors, the deck
-  // workspace for signed-in users. Decide before the shell renders, so the
-  // landing page never appears wrapped in a sidebar it has no use for.
-  if (location.pathname === "/" && homeGate !== "app") {
-    return homeGate === "landing" ? <Landing /> : <LandingSplash />;
-  }
 
   const isBare =
     BARE_ROUTES.has(location.pathname) ||
@@ -272,22 +265,12 @@ export default function Root() {
     return <Outlet />;
   }
 
-  const isHome = location.pathname === "/";
-
   return (
     <AppToolkitProvider>
       <AppProviders
         queryClient={queryClient}
         defaultTheme="dark"
         i18n={{ catalog: i18nCatalog }}
-        // `/` serves the public landing page to signed-out visitors, so it must
-        // not be bounced to the framework sign-in screen by the default session
-        // gate. Everything reachable *from* the workspace stays gated, and the
-        // server still refuses every action and API call without a session.
-        sessionBypass={isHome}
-        // Quiet brand mark instead of a spinner while `/` hydrates, since the
-        // page behind it may turn out to be the landing rather than the app.
-        clientOnlyFallback={isHome ? <LandingSplash /> : undefined}
       >
         <AppContent />
       </AppProviders>

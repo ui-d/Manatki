@@ -65,6 +65,7 @@ import {
   type AspectRatio,
   DEFAULT_ASPECT_RATIO,
 } from "@/lib/aspect-ratios";
+import type { GoogleSlidesExportResult } from "@/lib/export-google-slides-client";
 import {
   MAX_SLIDE_DIM,
   MIN_SLIDE_DIM,
@@ -76,7 +77,6 @@ import {
   type SizePreset,
   type SlideSize,
 } from "@/lib/slide-size";
-import type { GoogleSlidesExportResult } from "@/lib/export-google-slides-client";
 import { parseUploadResponse } from "@/lib/upload-response";
 import { shortcutLabel } from "@/lib/utils";
 
@@ -455,7 +455,7 @@ export default function EditorToolbar({
       <Tooltip>
         <TooltipTrigger asChild>
           <Link
-            to="/"
+            to="/decks"
             className="p-2.5 sm:p-1.5 rounded-md hover:bg-accent transition-colors flex-shrink-0"
             aria-label={t("editorToolbar.backToDecks")}
           >

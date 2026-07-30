@@ -23,7 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { icon: IconStack2, labelKey: "navigation.decks", href: "/" },
+  { icon: IconStack2, labelKey: "navigation.decks", href: "/decks" },
   {
     icon: IconPalette,
     labelKey: "navigation.designSystems",
@@ -46,10 +46,9 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
   const location = useLocation();
   const t = useT();
 
-  const isItemActive = (href: string) =>
-    href === "/"
-      ? location.pathname === "/"
-      : location.pathname.startsWith(href);
+  // No nav item points at "/" any more (that's the public landing page), so a
+  // plain prefix match is safe — it would previously have matched every route.
+  const isItemActive = (href: string) => location.pathname.startsWith(href);
 
   const collapseButton = onToggleCollapsed ? (
     <Tooltip>

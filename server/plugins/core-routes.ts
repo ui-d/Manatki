@@ -17,7 +17,8 @@ export default createCoreRoutesPlugin({
         : "";
       return `/deck/${params.deckId}${suffix}${query}`;
     }
-    if (view === "editor" || view === "present" || view === "list") return "/";
+    if (view === "editor" || view === "present" || view === "list")
+      return "/decks";
     return null;
   },
 });

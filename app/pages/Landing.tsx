@@ -2,6 +2,7 @@ import { useSession } from "@agent-native/core/client/hooks";
 import { buildSignInReturnHref } from "@agent-native/core/client/ui";
 import { IconArrowRight, IconBrandGithub } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 
 import {
   CAPABILITIES,
@@ -22,28 +23,50 @@ const NAV_LINKS = [
   { href: "#run", label: "Run it" },
 ];
 
+/** The workspace. `/` is marketing only. */
+const STUDIO_PATH = "/decks";
+
 /**
  * Where "Open the studio" should send someone.
  *
  * `buildSignInReturnHref()` reads `window.location`, so it can only run after
- * mount. Until then the href falls back to `/`, which is correct for signed-in
- * visitors and merely one redirect longer for everyone else.
+ * mount. Until then the href falls back to the workspace, which is correct for
+ * signed-in visitors and merely one redirect longer for everyone else.
  */
 function useStudioHref(): { href: string; label: string } {
   const { session } = useSession();
-  const [signInHref, setSignInHref] = useState("/");
+  const [signInHref, setSignInHref] = useState(STUDIO_PATH);
 
   useEffect(() => {
-    setSignInHref(buildSignInReturnHref({ returnTo: "/" }));
+    setSignInHref(buildSignInReturnHref({ returnTo: STUDIO_PATH }));
   }, []);
 
   return session
-    ? { href: "/", label: "Open the studio" }
+    ? { href: STUDIO_PATH, label: "Open the studio" }
     : { href: signInHref, label: "Start with GitHub" };
+}
+
+/**
+ * Send signed-in visitors on to the workspace.
+ *
+ * `/` is a static marketing page for everyone, so someone whose bookmark still
+ * points here would otherwise land on the pitch for a product they already
+ * use. The forward waits for the session to actually resolve — guessing from a
+ * cached hint would send signed-out visitors to a sign-in bounce.
+ */
+function useForwardSignedInToStudio(): void {
+  const { session, isLoading } = useSession();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isLoading || !session) return;
+    navigate(STUDIO_PATH, { replace: true });
+  }, [isLoading, session, navigate]);
 }
 
 export default function Landing() {
   const studio = useStudioHref();
+  useForwardSignedInToStudio();
 
   return (
     <div className="landing min-h-dvh">
@@ -407,20 +430,5 @@ function CtaLink({
     >
       {children}
     </a>
-  );
-}
-
-/**
- * Painted at `/` only on a first-ever visit, while the session resolves and
- * there is no remembered state to pick a side from. Deliberately near-empty:
- * it exists to avoid flashing the wrong page, not to be looked at.
- */
-export function LandingSplash() {
-  return (
-    <div className="landing flex min-h-dvh items-center justify-center">
-      <p className="landing-display text-[15px] font-bold uppercase tracking-[0.2em] text-[var(--landing-muted)]">
-        Manatki
-      </p>
-    </div>
   );
 }

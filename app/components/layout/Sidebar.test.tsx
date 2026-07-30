@@ -137,6 +137,19 @@ describe("<Sidebar expanded>", () => {
     expect(designSystems.classList.contains("bg-sidebar-accent")).toBe(true);
     expect(decks.classList.contains("bg-sidebar-accent")).toBe(false);
   });
+
+  // The workspace moved off `/` when that became the public landing page.
+  it("points Decks at /decks and highlights it there", () => {
+    renderAt(
+      "/decks",
+      <Sidebar collapsed={false} onToggleCollapsed={() => {}} />,
+    );
+
+    const decks = screen.getByText("Decks").closest("a")!;
+
+    expect(decks.getAttribute("href")).toBe("/decks");
+    expect(decks.classList.contains("bg-sidebar-accent")).toBe(true);
+  });
 });
 
 describe("<Sidebar> without onToggleCollapsed (mobile drawer)", () => {
