@@ -2,12 +2,12 @@ import { createAuthPlugin } from "@agent-native/core/server";
 
 export default createAuthPlugin({
   marketing: {
-    appName: "Slides",
+    appName: "Manatki",
     tagline:
-      "Your AI agent builds, edits, and refines presentations alongside you.",
+      "Your AI agent crafts presentations and marketing assets alongside you.",
     features: [
-      "Generate entire decks from a single prompt",
-      "Surgical slide edits while you present or review",
+      "Generate entire decks or social campaigns from a single prompt",
+      "Surgical edits on any slide or asset while you review",
       "Real-time collaboration between you and the agent",
     ],
   },

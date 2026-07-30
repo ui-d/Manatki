@@ -20,7 +20,7 @@ const messages = {
   },
   navigation: {
     settings: "الإعدادات",
-    brand: "الشرائح",
+    brand: "Manatki",
     decks: "العروض",
     designSystems: "أنظمة التصميم",
     team: "الفريق",
@@ -97,8 +97,8 @@ const messages = {
     googlePickerNeedsKeys:
       "Google Picker precisa de GOOGLE_PICKER_API_KEY e GOOGLE_PICKER_APP_ID.",
     imageUploadFailed: "Falha ao enviar imagem",
-    imageUploadNeedsBuilder:
-      "وصّل Builder.io من قائمة النموذج في مؤلف الوكيل لتحميل الصور إلى الشرائح. لا يزال بإمكانك إفلات صورة على اللوحة الفارغة لإرسالها إلى الوكيل بدون مزود.",
+    imageUploadNeedsStorage:
+      "Image uploads need file storage. Configure a storage provider (e.g. Vercel Blob) to upload images onto slides. Dropping an image onto the canvas can still send it to the agent without a provider.",
     sentToAgent: "Enviado ao agente",
     imageUploadGenericError: "Algo deu errado ao enviar esta imagem.",
     uploading: "Enviando…",
@@ -145,12 +145,12 @@ const messages = {
     presentationNotFound: "لم يتم العثور على العرض",
     sharedPresentationExpired:
       "Esta apresentação compartilhada não existe ou expirou.",
-    routeNotFoundTitle: "Não encontrado - Slides",
-    routeEditorTitle: "المحرر — Slides",
-    routeDesignSystemsTitle: "Sistemas de design - Slides",
-    routeSettingsTitle: "Configurações - Slides",
+    routeNotFoundTitle: "Não encontrado - Manatki",
+    routeEditorTitle: "المحرر — Manatki",
+    routeDesignSystemsTitle: "Sistemas de design - Manatki",
+    routeSettingsTitle: "Configurações - Manatki",
     routeSharedTitle: "عرض مشترك",
-    routeTeamTitle: "Equipe — Slides",
+    routeTeamTitle: "Equipe — Manatki",
     slidePreviewTitle: "Prévia do slide",
     slideUnavailable: "Slide indisponível",
     couldNotLoadSlide: "Não foi possível carregar o slide.",
@@ -535,8 +535,8 @@ const messages = {
     backToDecks: "Volver a decks",
     tryAgain: "Intentar de nuevo",
     imageUploadFailed: "Error al subir imagen",
-    imageUploadNeedsBuilder:
-      "وصّل Builder.io من قائمة النموذج في مؤلف الوكيل لتحميل الصور إلى الشرائح. لا يزال بإمكانك إفلات صورة على اللوحة الفارغة لإرسالها إلى الوكيل بدون مزود.",
+    imageUploadNeedsStorage:
+      "Image uploads need file storage. Configure a storage provider (e.g. Vercel Blob) to upload images onto slides. Dropping an image onto the canvas can still send it to the agent without a provider.",
     imageAdded: "Imagen añadida",
     imageUploadError: "Algo salió mal al subir esta imagen.",
     exportFailed: "Error al exportar",
@@ -551,10 +551,6 @@ const messages = {
     slidesAdded_other: "{{count}} diapositivas añadidas",
   },
   designSystemSetup: {
-    importedBrand: "علامة تجارية مستوردة",
-    figFileRequired: "يرجى اختيار ملف .fig (في Figma: File > Save local copy).",
-    figFileTooLarge: "الملف كبير جدًا (الحد الأقصى {{maxSize}}).",
-    figParseFailed: "تعذر بدء فهرسة Builder لملف Figma هذا.",
     updated: "تم تحديث نظام التصميم",
     updateFailed: "فشل التحديث",
     generationStarted: "بدأ إنشاء نظام التصميم",
@@ -564,23 +560,12 @@ const messages = {
     newTitle: "نظام تصميم جديد",
     editDescription: "حدّث هوية علامتك التجارية.",
     newDescription:
-      "اربط Figma والكود وإرشادات design.md الاختيارية عبر Builder DSI.",
+      "Build a design system from your website, code files, brand documents, and visual references.",
     companyBrand: "الشركة / العلامة",
     companyBrandPlaceholder: "Acme Inc. — نبني أدوات للمطورين...",
-    figmaFile: "ربط Figma",
-    parsingFigmaFile: "جارٍ بدء فهرسة Builder DSI...",
-    uploadFigDescription: "حمّل نسخة .fig محلية إلى Builder DSI",
-    builderIndexingStarted: "بدأت فهرسة Builder",
-    builderIndexingDescription:
-      "Builder is indexing {{title}} into a reusable design system.",
-    builderDesignSystemId: "نظام التصميم",
-    builderJobId: "Job",
-    openInBuilder: "فتح في Builder",
-    decodeFailed: "فشل فك الترميز: {{error}}",
     websiteUrl: "رابط الموقع",
     websitePlaceholder: "example.com أو Nike",
     add: "إضافة",
-    githubRepository: "ربط الكود: مستودع GitHub",
     codeFiles: "ربط ملفات الكود",
     codeFilesDrop:
       "CSS، إعدادات Tailwind، ملفات السمة، design.md — اسحبها أو انقر",
@@ -603,7 +588,6 @@ const messages = {
     saveChanges: "حفظ التغييرات",
     continueToGeneration: "المتابعة إلى الإنشاء",
     removeItem: "إزالة {{item}}",
-    chooseAnotherFile: "اختيار ملف آخر",
   },
   home: {
     loadFailed: "تعذر تحميل المحتوى",

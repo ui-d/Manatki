@@ -241,3 +241,60 @@ describe("deriveInverseOp / applyOpToDeck round-trips", () => {
     expect(applyOpToDeck(before, op)).toBe(before);
   });
 });
+
+describe("per-slide size undo (social projects)", () => {
+  it("resize round-trips: undo restores the prior size", () => {
+    const before = deck([
+      slide("s1", { size: { width: 1080, height: 1080, preset: "ig-square" } }),
+    ]);
+    const op: PatchDeckOp = {
+      op: "patch-slide",
+      slideId: "s1",
+      fields: { size: { width: 1080, height: 1920, preset: "ig-story" } },
+    };
+    const after = applyOpToDeck(before, op);
+    expect(after.slides[0].size).toEqual({
+      width: 1080,
+      height: 1920,
+      preset: "ig-story",
+    });
+
+    const inverse = deriveInverseOp(before, op);
+    expect(inverse).not.toBeNull();
+    let restored = after;
+    for (const inv of inverse!) restored = applyOpToDeck(restored, inv);
+    expect(stripTimestamps(restored)).toEqual(stripTimestamps(before));
+  });
+
+  it("undoing a first-time resize clears size with an explicit null", () => {
+    const before = deck([slide("s1")]);
+    const op: PatchDeckOp = {
+      op: "patch-slide",
+      slideId: "s1",
+      fields: { size: { width: 1200, height: 628 } },
+    };
+    const inverse = deriveInverseOp(before, op);
+    // null (not undefined) so the server-side patch also clears the field.
+    expect(inverse).toEqual([
+      { op: "patch-slide", slideId: "s1", fields: { size: null } },
+    ]);
+
+    const after = applyOpToDeck(before, op);
+    let restored = after;
+    for (const inv of inverse!) restored = applyOpToDeck(restored, inv);
+    expect("size" in restored.slides[0]).toBe(false);
+  });
+
+  it("deleting a sized asset restores its size on undo", () => {
+    const before = deck([
+      slide("s1", { size: { width: 1080, height: 1920 } }),
+      slide("s2"),
+    ]);
+    const op: PatchDeckOp = { op: "delete-slide", slideId: "s1" };
+    const inverse = deriveInverseOp(before, op);
+    const after = applyOpToDeck(before, op);
+    let restored = after;
+    for (const inv of inverse!) restored = applyOpToDeck(restored, inv);
+    expect(restored.slides[0].size).toEqual({ width: 1080, height: 1920 });
+  });
+});

@@ -165,16 +165,10 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
         <div className="flex items-center gap-2">
           <img
-            src={appPath("/agent-native-icon-light.svg")}
+            src={appPath("/manatki-icon.svg")}
             alt=""
             aria-hidden="true"
-            className="block h-4 w-auto dark:hidden"
-          />
-          <img
-            src={appPath("/agent-native-icon-dark.svg")}
-            alt=""
-            aria-hidden="true"
-            className="hidden h-4 w-auto dark:block"
+            className="block h-4 w-auto"
           />
           <span className="text-sm font-semibold tracking-tight">
             {t("navigation.brand")}

@@ -5,19 +5,15 @@ import {
 } from "@agent-native/core/client/hooks";
 import { useT } from "@agent-native/core/client/i18n";
 import { openAgentSidebar } from "@agent-native/core/client/navigation";
-import { withBuilderUtmTrackingParams } from "@agent-native/core/shared";
 import {
   IconWorld,
   IconPalette,
   IconLoader2,
-  IconBrandGithub,
-  IconBrandFigma,
   IconFolder,
   IconX,
   IconFileDescription,
   IconPhoto,
   IconCheck,
-  IconExternalLink,
 } from "@tabler/icons-react";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { toast } from "sonner";
@@ -35,27 +31,11 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 
-import {
-  uploadAndIndexFigmaFiles,
-  pollDecodeJobStatus,
-  type DecodeJobStatus,
-} from "./builder-design-system-upload";
-import {
-  MAX_BUILDER_INDEX_UPLOAD_BYTES,
-  formatFileSize,
-  type BuilderIndexResult,
-} from "./builder-index-response";
-
 interface DesignSystemSetupProps {
   open: boolean;
   onClose: () => void;
   onComplete: () => void;
   editingId?: string;
-}
-
-interface GitHubLink {
-  id: string;
-  url: string;
 }
 
 interface UploadedFile {
@@ -106,81 +86,16 @@ export function DesignSystemSetup({
   const [companyName, setCompanyName] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [websiteUrls, setWebsiteUrls] = useState<string[]>([]);
-  const [githubUrl, setGithubUrl] = useState("");
-  const [githubLinks, setGithubLinks] = useState<GitHubLink[]>([]);
   const [codeFiles, setCodeFiles] = useState<UploadedFile[]>([]);
   const [docFiles, setDocFiles] = useState<UploadedFile[]>([]);
   const [imageFiles, setImageFiles] = useState<UploadedFile[]>([]);
   const [brandNotes, setBrandNotes] = useState("");
   const [customInstructions, setCustomInstructions] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [builderIndexing, setBuilderIndexing] = useState(false);
-  const [builderIndexResult, setBuilderIndexResult] =
-    useState<BuilderIndexResult | null>(null);
-  const [builderIndexError, setBuilderIndexError] = useState<string | null>(
-    null,
-  );
-  const [decodeStatus, setDecodeStatus] = useState<DecodeJobStatus | null>(
-    null,
-  );
-  const decodePollRef = useRef<AbortController | null>(null);
-
-  const stopDecodePolling = useCallback(() => {
-    decodePollRef.current?.abort();
-    decodePollRef.current = null;
-  }, []);
-
-  const startDecodePolling = useCallback(
-    (jobId: string, indexResult: BuilderIndexResult) => {
-      decodePollRef.current?.abort();
-      const controller = new AbortController();
-      decodePollRef.current = controller;
-      setDecodeStatus({
-        status: "pending",
-        branchUrl: null,
-        error: null,
-        framesProcessed: 0,
-        totalFrames: 0,
-      });
-      pollDecodeJobStatus(jobId, {
-        signal: controller.signal,
-        onUpdate: (status) => {
-          if (!controller.signal.aborted) setDecodeStatus(status);
-        },
-      })
-        .then((status) => {
-          if (controller.signal.aborted) return;
-          setDecodeStatus(status);
-          setBuilderIndexResult(
-            status.branchUrl
-              ? { ...indexResult, builderUrl: status.branchUrl }
-              : indexResult,
-          );
-          setBuilderIndexing(false);
-        })
-        .catch((err: unknown) => {
-          if (controller.signal.aborted) return;
-          if (err instanceof DOMException && err.name === "AbortError") return;
-          setDecodeStatus((prev) => ({
-            status: "error",
-            branchUrl: prev?.branchUrl ?? null,
-            error: err instanceof Error ? err.message : String(err),
-            framesProcessed: prev?.framesProcessed ?? 0,
-            totalFrames: prev?.totalFrames ?? 0,
-          }));
-          setBuilderIndexResult(indexResult);
-          setBuilderIndexing(false);
-        });
-    },
-    [],
-  );
-
-  useEffect(() => stopDecodePolling, [stopDecodePolling]);
 
   const codeInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const figInputRef = useRef<HTMLInputElement>(null);
   const updateSystemMutation = useActionMutation("update-design-system");
 
   const { data: existingDs } = useActionQuery<{
@@ -218,29 +133,20 @@ export function DesignSystemSetup({
       setCompanyName("");
       setWebsiteUrl("");
       setWebsiteUrls([]);
-      setGithubUrl("");
-      setGithubLinks([]);
       setCodeFiles([]);
       setDocFiles([]);
       setImageFiles([]);
       setBrandNotes("");
       setCustomInstructions("");
       setSelectedSystemId("");
-      setBuilderIndexing(false);
-      setBuilderIndexResult(null);
-      setBuilderIndexError(null);
-      stopDecodePolling();
-      setDecodeStatus(null);
     }
-  }, [open, stopDecodePolling]);
+  }, [open]);
 
   const hasAnySources = useMemo(() => {
     return (
       companyName.trim() ||
       websiteUrls.length > 0 ||
-      githubLinks.length > 0 ||
       codeFiles.length > 0 ||
-      builderIndexResult ||
       docFiles.length > 0 ||
       imageFiles.length > 0 ||
       selectedSystemId ||
@@ -250,9 +156,7 @@ export function DesignSystemSetup({
   }, [
     companyName,
     websiteUrls,
-    githubLinks,
     codeFiles,
-    builderIndexResult,
     docFiles,
     imageFiles,
     selectedSystemId,
@@ -266,13 +170,6 @@ export function DesignSystemSetup({
     setWebsiteUrls((prev) => (prev.includes(url) ? prev : [...prev, url]));
     setWebsiteUrl("");
   }, [websiteUrl]);
-
-  const addGithubLink = useCallback(() => {
-    const url = githubUrl.trim();
-    if (!url) return;
-    setGithubLinks((prev) => [...prev, { id: crypto.randomUUID(), url }]);
-    setGithubUrl("");
-  }, [githubUrl]);
 
   const readTextFiles = useCallback(
     (
@@ -307,57 +204,7 @@ export function DesignSystemSetup({
         setter((prev) => [...prev, ...newFiles]);
       });
     },
-    [t],
-  );
-
-  const handleBuilderIndexUpload = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      event.target.value = "";
-      if (!file) return;
-      if (!file.name.toLowerCase().endsWith(".fig")) {
-        setBuilderIndexError(t("designSystemSetup.figFileRequired"));
-        return;
-      }
-      if (file.size > MAX_BUILDER_INDEX_UPLOAD_BYTES) {
-        setBuilderIndexError(
-          t("designSystemSetup.figFileTooLarge", {
-            maxSize: formatFileSize(MAX_BUILDER_INDEX_UPLOAD_BYTES),
-          }),
-        );
-        return;
-      }
-
-      setBuilderIndexError(null);
-      setBuilderIndexResult(null);
-      stopDecodePolling();
-      setDecodeStatus(null);
-      setBuilderIndexing(true);
-      try {
-        const suggestedTitle =
-          file.name
-            .replace(/\.fig$/i, "")
-            .replace(/[-_]+/g, " ")
-            .trim() || "Imported brand";
-        const parsed = await uploadAndIndexFigmaFiles([file], {
-          projectName: suggestedTitle,
-        });
-        if (parsed.jobId) {
-          startDecodePolling(parsed.jobId, parsed);
-        } else {
-          setBuilderIndexResult(parsed);
-          setBuilderIndexing(false);
-        }
-      } catch (err) {
-        setBuilderIndexError(
-          err instanceof Error
-            ? err.message
-            : t("designSystemSetup.figParseFailed"),
-        );
-        setBuilderIndexing(false);
-      }
-    },
-    [t, startDecodePolling, stopDecodePolling],
+    [],
   );
 
   const handleEditSave = async () => {
@@ -396,7 +243,7 @@ export function DesignSystemSetup({
 
     const parts: string[] = [];
     parts.push(
-      "Set up a design system from the following sources. Use Builder Design System Intelligence (DSI) as the source of truth for reusable Figma/code/design.md indexing. Analyze each source, extract design tokens (colors, fonts, spacing, borders), and create a cohesive design system for my slide decks.",
+      "Set up a design system from the following sources. Analyze each source, extract design tokens (colors, fonts, spacing, borders), and create a cohesive design system for my projects with `create-design-system`.",
     );
 
     if (companyName.trim()) {
@@ -406,12 +253,6 @@ export function DesignSystemSetup({
     if (websiteUrls.length > 0) {
       parts.push(
         `\n## Website URLs\nAnalyze these websites for design tokens. Call \`import-from-url\` for each:\n${websiteUrls.map((u) => `- ${u}`).join("\n")}`,
-      );
-    }
-
-    if (githubLinks.length > 0) {
-      parts.push(
-        `\n## Connect Code: GitHub Repositories\nStart Builder DSI indexing for each repository with \`index-design-system-with-builder\`:\n${githubLinks.map((l) => `- ${l.url}`).join("\n")}\n\nBuilder is the source of truth for repo/code design-system indexing. The action also creates a local selectable proxy design system for Slides flows. If Builder is not connected, stop and tell me to connect Builder from Settings.`,
       );
     }
 
@@ -425,7 +266,7 @@ export function DesignSystemSetup({
       );
       if (withContent.length > 0) {
         parts.push(
-          `\n## Connect Code: Code Files (${withContent.length} files)\nStart Builder DSI indexing with \`index-design-system-with-builder\` using these files as the \`codeFiles\` argument:`,
+          `\n## Code Files (${withContent.length} files)\nExtract design tokens (colors, typography, spacing, radii) from the code below and fold them into the design system:`,
         );
         for (const f of withContent) {
           parts.push(
@@ -437,19 +278,13 @@ export function DesignSystemSetup({
 
     if (designMdFiles.length > 0) {
       parts.push(
-        `\n## Optional design.md (${designMdFiles.length} file${designMdFiles.length === 1 ? "" : "s"})\nPass this content as the \`designMd\` argument to \`index-design-system-with-builder\` alongside any Figma/code sources:`,
+        `\n## design.md (${designMdFiles.length} file${designMdFiles.length === 1 ? "" : "s"})\nTreat this as the authoritative brand guidance. Apply its tokens and rules directly when creating the design system:`,
       );
       for (const f of designMdFiles) {
         parts.push(
           `\n### ${f.name}\n\`\`\`md\n${inlineText(f.textContent!)}\n\`\`\``,
         );
       }
-    }
-
-    if (builderIndexResult) {
-      parts.push(
-        `\n## Connect Figma: Builder-Indexed Figma File\nBuilder DSI indexing has already started.\n- Design system: ${builderIndexResult.designSystemId}\n- Local selectable design system: ${builderIndexResult.localDesignSystemId ?? "(not returned)"}\n- Project: ${builderIndexResult.projectId}\n- Job: ${builderIndexResult.jobId}\n- URL: ${builderIndexResult.builderUrl}\n\nUse Builder as the source of truth for indexed tokens, assets, components, and guidance. Do not call \`create-design-system\` again for this Builder-indexed source.`,
-      );
     }
 
     if (docFiles.length > 0) {
@@ -495,12 +330,12 @@ export function DesignSystemSetup({
 
     if (customInstructions.trim()) {
       parts.push(
-        `\n## Custom Instructions (durable — store on the design system)\nIf you create a local design system from non-Builder sources, pass these verbatim as the \`customInstructions\` argument. They will be re-applied every time the design system is used to generate slides:\n\n${customInstructions.trim()}`,
+        `\n## Custom Instructions (durable — store on the design system)\nPass these verbatim as the \`customInstructions\` argument to \`create-design-system\`. They will be re-applied every time the design system is used to generate slides:\n\n${customInstructions.trim()}`,
       );
     }
 
     parts.push(
-      `\n---\nAfter processing all sources, if you started Builder DSI indexing, report the Builder job/design-system URL plus the local selectable design-system id returned by \`index-design-system-with-builder\`. Do not call \`create-design-system\` again for Builder-indexed Figma/code/design.md sources. If you processed non-Builder sources into concrete tokens, call \`create-design-system\` with the combined tokens${
+      `\n---\nAfter processing all sources, call \`create-design-system\` with the combined tokens${
         customInstructions.trim()
           ? " AND the verbatim --customInstructions string from above"
           : ""
@@ -517,9 +352,7 @@ export function DesignSystemSetup({
     editingId,
     companyName,
     websiteUrls,
-    githubLinks,
     codeFiles,
-    builderIndexResult,
     docFiles,
     imageFiles,
     selectedSystemId,
@@ -564,61 +397,6 @@ export function DesignSystemSetup({
 
             {!editingId && (
               <>
-                {/* Figma .fig */}
-                <div className="space-y-2">
-                  <Label className="text-foreground/80 flex items-center gap-1.5">
-                    <IconBrandFigma className="w-3.5 h-3.5" />
-                    {t("designSystemSetup.figmaFile")}
-                  </Label>
-                  {!builderIndexResult ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => figInputRef.current?.click()}
-                        disabled={builderIndexing}
-                        className="w-full border border-dashed border-border rounded-lg p-4 text-center hover:border-foreground/20 cursor-pointer disabled:cursor-wait disabled:opacity-70"
-                      >
-                        {builderIndexing ? (
-                          <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                            <IconLoader2 className="w-3.5 h-3.5 animate-spin" />
-                            {t("designSystemSetup.parsingFigmaFile")}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            {t("designSystemSetup.uploadFigDescription")}
-                          </span>
-                        )}
-                      </button>
-                      <input
-                        ref={figInputRef}
-                        type="file"
-                        accept=".fig"
-                        onChange={handleBuilderIndexUpload}
-                        className="hidden"
-                      />
-                      {builderIndexError && (
-                        <div
-                          role="alert"
-                          className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-                        >
-                          {builderIndexError}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <BuilderIndexPreview
-                      result={builderIndexResult}
-                      decodeStatus={decodeStatus}
-                      onReset={() => {
-                        stopDecodePolling();
-                        setDecodeStatus(null);
-                        setBuilderIndexResult(null);
-                        setBuilderIndexError(null);
-                      }}
-                    />
-                  )}
-                </div>
-
                 {/* Website URL */}
                 <div className="space-y-2">
                   <Label className="text-foreground/80 flex items-center gap-1.5">
@@ -652,39 +430,6 @@ export function DesignSystemSetup({
                     items={websiteUrls}
                     onRemove={(i) =>
                       setWebsiteUrls((p) => p.filter((_, j) => j !== i))
-                    }
-                  />
-                </div>
-
-                {/* GitHub */}
-                <div className="space-y-2">
-                  <Label className="text-foreground/80 flex items-center gap-1.5">
-                    <IconBrandGithub className="w-3.5 h-3.5" />
-                    {t("designSystemSetup.githubRepository")}
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={githubUrl}
-                      onChange={(e) => setGithubUrl(e.target.value)}
-                      placeholder="https://github.com/org/repo"
-                      className="bg-accent border-border text-foreground placeholder:text-muted-foreground"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") addGithubLink();
-                      }}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={addGithubLink}
-                      className="shrink-0 cursor-pointer"
-                    >
-                      {t("designSystemSetup.add")}
-                    </Button>
-                  </div>
-                  <TagList
-                    items={githubLinks.map((l) => l.url)}
-                    onRemove={(i) =>
-                      setGithubLinks((p) => p.filter((_, j) => j !== i))
                     }
                   />
                 </div>
@@ -942,80 +687,6 @@ function TagList({
           </button>
         </div>
       ))}
-    </div>
-  );
-}
-
-function BuilderIndexPreview({
-  result,
-  decodeStatus,
-  onReset,
-}: {
-  result: BuilderIndexResult;
-  decodeStatus: DecodeJobStatus | null;
-  onReset: () => void;
-}) {
-  const t = useT();
-  const decodeDone =
-    decodeStatus == null ||
-    Boolean(decodeStatus.branchUrl) ||
-    decodeStatus.status === "complete";
-  const decodeFailed = decodeStatus?.status === "error";
-  const decodeText = decodeFailed
-    ? t("designSystemSetup.decodeFailed", { error: decodeStatus?.error ?? "" })
-    : null;
-  return (
-    <div className="space-y-4 rounded-lg border border-border bg-accent/40 p-4">
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#609FF8]/10">
-          <IconBrandFigma className="h-5 w-5 text-[#609FF8]" />
-        </div>
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <h4 className="text-sm font-medium text-foreground">
-            {t("designSystemSetup.builderIndexingStarted")}
-          </h4>
-          <p className="text-xs text-muted-foreground">
-            {t("designSystemSetup.builderIndexingDescription", {
-              title:
-                result.suggestedTitle || t("designSystemSetup.importedBrand"),
-            })}
-          </p>
-        </div>
-      </div>
-
-      {decodeText && (
-        <div className="border-t border-border pt-3 text-xs text-destructive">
-          {decodeText}
-        </div>
-      )}
-
-      {(decodeDone || decodeFailed) && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          {decodeDone && !decodeFailed && (
-            <Button size="sm" asChild className="cursor-pointer">
-              <a
-                href={withBuilderUtmTrackingParams(result.builderUrl, {
-                  campaign: "product",
-                  content: "design_system_intelligence",
-                })}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <IconExternalLink className="w-3.5 h-3.5" />
-                {t("designSystemSetup.openInBuilder")}
-              </a>
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onReset}
-            className="cursor-pointer"
-          >
-            {t("designSystemSetup.chooseAnotherFile")}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

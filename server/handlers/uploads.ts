@@ -155,7 +155,7 @@ export async function saveUploadedReferenceFile(args: {
     if (!reference) {
       throw Object.assign(
         new Error(
-          "Private file storage is not configured. Connect Builder.io or another file provider before uploading reference files in a hosted Slides deployment.",
+          "Private file storage is not configured. Configure a file provider (e.g. Vercel Blob) before uploading reference files in a hosted deployment.",
         ),
         { statusCode: 503 },
       );

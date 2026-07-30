@@ -65,6 +65,17 @@ import {
   type AspectRatio,
   DEFAULT_ASPECT_RATIO,
 } from "@/lib/aspect-ratios";
+import {
+  MAX_SLIDE_DIM,
+  MIN_SLIDE_DIM,
+  SIZE_PRESETS,
+  SIZE_PRESET_VALUES,
+  getSlideDims,
+  isValidSlideDims,
+  type DeckKind,
+  type SizePreset,
+  type SlideSize,
+} from "@/lib/slide-size";
 import type { GoogleSlidesExportResult } from "@/lib/export-google-slides-client";
 import { parseUploadResponse } from "@/lib/upload-response";
 import { shortcutLabel } from "@/lib/utils";
@@ -150,6 +161,15 @@ interface EditorToolbarProps {
   aspectRatio?: AspectRatio;
   /** Change the deck's aspect ratio */
   onSetAspectRatio?: (ratio: AspectRatio) => void;
+  /** Project kind — "social" swaps the deck-level ratio picker for a
+   *  per-slide canvas-size picker. */
+  deckKind?: DeckKind;
+  /** Set the current slide's canvas size (null = clear to deck default). */
+  onSetSlideSize?: (size: SlideSize | null) => void;
+  /** Download the current asset as a PNG (social projects). */
+  onExportPngCurrent?: () => Promise<void> | void;
+  /** Download every asset as PNGs in a ZIP (social projects). */
+  onExportPngZip?: () => Promise<void> | void;
 }
 
 const slideLayoutOptions: { value: SlideLayout; labelKey: string }[] = [
@@ -284,6 +304,10 @@ export default function EditorToolbar({
   onExportGoogleSlides,
   aspectRatio,
   onSetAspectRatio,
+  deckKind,
+  onSetSlideSize,
+  onExportPngCurrent,
+  onExportPngZip,
   canEdit = true,
 }: EditorToolbarProps) {
   const t = useT();
@@ -722,8 +746,21 @@ graph TD
                 )}
               </div>
 
-              {/* Aspect Ratio section (deck-level) */}
-              {onSetAspectRatio && (
+              {/* Canvas Size section (per-slide, social projects) */}
+              {deckKind === "social" && onSetSlideSize && currentSlide && (
+                <>
+                  <div className="mx-2 my-1.5 border-t border-white/[0.06]" />
+                  <SlideSizePicker
+                    currentSlide={currentSlide}
+                    aspectRatio={aspectRatio}
+                    onSetSlideSize={onSetSlideSize}
+                  />
+                </>
+              )}
+
+              {/* Aspect Ratio section (deck-level; hidden for social projects
+                  where each asset has its own canvas) */}
+              {deckKind !== "social" && onSetAspectRatio && (
                 <>
                   <div className="mx-2 my-1.5 border-t border-white/[0.06]" />
                   <div className="px-3 py-1.5 text-[10px] font-medium text-white/30 uppercase tracking-wider">
@@ -1008,6 +1045,9 @@ graph TD
           onExportPdf={onExportPdf ?? (() => {})}
           onExportPptx={onExportPptx ?? (() => {})}
           onExportGoogleSlides={onExportGoogleSlides}
+          deckKind={deckKind}
+          onExportPngCurrent={onExportPngCurrent}
+          onExportPngZip={onExportPngZip}
         />
       </div>
 
@@ -1047,14 +1087,17 @@ graph TD
           }}
         />
       </div>
-      {/* Present button — matches Share trigger height (h-9) */}
-      <Link
-        to={`/deck/${deckId}/present`}
-        className="inline-flex h-9 flex-shrink-0 items-center justify-center gap-1.5 rounded-md border border-border bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-      >
-        <IconPlayerPlay className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">{t("editorToolbar.present")}</span>
-      </Link>
+      {/* Present button — matches Share trigger height (h-9). Hidden for
+          social projects: mixed-size assets have no presenter flow. */}
+      {deckKind !== "social" && (
+        <Link
+          to={`/deck/${deckId}/present`}
+          className="inline-flex h-9 flex-shrink-0 items-center justify-center gap-1.5 rounded-md border border-border bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          <IconPlayerPlay className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">{t("editorToolbar.present")}</span>
+        </Link>
+      )}
 
       {/* Hidden file input for "Import" overflow menu item */}
       <input
@@ -1116,5 +1159,122 @@ graph TD
       <RunsTray pollMs={0} />
       <AgentToggleButton />
     </div>
+  );
+}
+
+/** Per-slide canvas-size picker shown in social projects: named presets plus
+ *  a custom width×height entry. Emits the materialized size via
+ *  onSetSlideSize; presets are stored with their key for display. */
+function SlideSizePicker({
+  currentSlide,
+  aspectRatio,
+  onSetSlideSize,
+}: {
+  currentSlide: Slide;
+  aspectRatio?: AspectRatio;
+  onSetSlideSize: (size: SlideSize | null) => void;
+}) {
+  const t = useT();
+  const dims = getSlideDims(currentSlide, aspectRatio);
+  const activePreset = SIZE_PRESET_VALUES.find(
+    (key) =>
+      SIZE_PRESETS[key].width === dims.width &&
+      SIZE_PRESETS[key].height === dims.height,
+  );
+  const [customW, setCustomW] = useState(String(dims.width));
+  const [customH, setCustomH] = useState(String(dims.height));
+
+  // Follow external size changes (agent edits, undo) while inputs are idle.
+  useEffect(() => {
+    setCustomW(String(dims.width));
+    setCustomH(String(dims.height));
+  }, [dims.width, dims.height]);
+
+  const applyPreset = (key: SizePreset) => {
+    const preset = SIZE_PRESETS[key];
+    onSetSlideSize({ width: preset.width, height: preset.height, preset: key });
+  };
+
+  const parsedW = Number(customW);
+  const parsedH = Number(customH);
+  const customValid = isValidSlideDims(parsedW, parsedH);
+  const customDirty = parsedW !== dims.width || parsedH !== dims.height;
+
+  return (
+    <>
+      <div className="px-3 py-1.5 text-[10px] font-medium text-white/30 uppercase tracking-wider">
+        {t("editorToolbar.slideSize")}
+      </div>
+      <div className="px-3 pb-2 grid grid-cols-2 gap-1">
+        {SIZE_PRESET_VALUES.map((key) => {
+          const preset = SIZE_PRESETS[key];
+          const active = activePreset === key;
+          return (
+            <Tooltip key={key}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => applyPreset(key)}
+                  className={`px-1.5 py-1 rounded text-[10px] font-medium border text-left truncate ${
+                    active
+                      ? "bg-[#609FF8]/20 text-[#609FF8] border-[#609FF8]/30"
+                      : "text-white/40 hover:text-white/70 hover:bg-white/[0.04] border-transparent"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t("editorToolbar.setSlideSize", {
+                  label: preset.label,
+                  width: preset.width,
+                  height: preset.height,
+                })}
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </div>
+      <div className="px-3 pb-2.5 flex items-center gap-1.5">
+        <span className="text-[10px] text-white/30">
+          {t("editorToolbar.customSize")}
+        </span>
+        <input
+          type="number"
+          value={customW}
+          min={MIN_SLIDE_DIM}
+          max={MAX_SLIDE_DIM}
+          onChange={(e) => setCustomW(e.target.value)}
+          className="w-14 rounded bg-white/[0.04] border border-white/[0.08] px-1 py-0.5 text-[10px] text-white/70 focus:outline-none focus:border-[#609FF8]/50"
+          aria-label="Width"
+        />
+        <span className="text-[10px] text-white/30">×</span>
+        <input
+          type="number"
+          value={customH}
+          min={MIN_SLIDE_DIM}
+          max={MAX_SLIDE_DIM}
+          onChange={(e) => setCustomH(e.target.value)}
+          className="w-14 rounded bg-white/[0.04] border border-white/[0.08] px-1 py-0.5 text-[10px] text-white/70 focus:outline-none focus:border-[#609FF8]/50"
+          aria-label="Height"
+        />
+        <button
+          onClick={() =>
+            customValid && onSetSlideSize({ width: parsedW, height: parsedH })
+          }
+          disabled={!customValid || !customDirty}
+          title={
+            customValid
+              ? undefined
+              : t("editorToolbar.customSizeInvalid", {
+                  min: MIN_SLIDE_DIM,
+                  max: MAX_SLIDE_DIM,
+                })
+          }
+          className="px-1.5 py-0.5 rounded text-[10px] font-medium border border-transparent text-[#609FF8] hover:bg-[#609FF8]/10 disabled:opacity-40 disabled:pointer-events-none"
+        >
+          {t("editorToolbar.applyCustomSize")}
+        </button>
+      </div>
+    </>
   );
 }

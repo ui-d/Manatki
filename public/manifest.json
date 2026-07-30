@@ -1,7 +1,7 @@
 {
-  "name": "Slides",
-  "short_name": "Slides",
-  "description": "AI slide deck creator",
+  "name": "Manatki",
+  "short_name": "Manatki",
+  "description": "AI marketing asset and presentation studio",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#111111",

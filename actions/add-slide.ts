@@ -17,6 +17,15 @@ import { normalizeSlidePadding } from "../app/lib/normalize-slide-padding.js";
 import { getDb, schema } from "../server/db/index.js";
 import { notifyClients } from "../server/handlers/decks.js";
 import { createDeckVersionSnapshot } from "../server/lib/deck-versions.js";
+import {
+  MAX_SLIDE_DIM,
+  MIN_SLIDE_DIM,
+  SIZE_PRESET_VALUES,
+} from "../shared/slide-size.js";
+import {
+  deckDefaultSize,
+  resolveRequestedSlideSize,
+} from "./_deck-write.js";
 import { slideLabelFor, touchAgentSlidePresence } from "./_agent-presence.js";
 import {
   awaitLayoutFitCheck,
@@ -99,6 +108,7 @@ export default defineAction({
     "call it once per slide in slide order and wait for each result before adding the next slide. " +
     "Avoid parallel add-slide calls for the same deck; sequential writes keep the editor and agent connection stable. " +
     "If the deck has a designSystemId, first use `get-design-system` and apply its `agentContext` tokens/docs; do not use generic slide styling from the id alone. " +
+    "For social-asset projects, pass sizePreset (e.g. ig-square, ig-story, og-banner) or explicit width+height pixels — each slide in a social project can have its own canvas size, and the fit check measures against that canvas. " +
     "Returns the new slide ID, 1-based slideNumber, and updated slide count.",
   schema: z.object({
     deckId: z.string().describe("Target deck ID"),
@@ -123,6 +133,26 @@ export default defineAction({
       .optional()
       .describe("Layout type hint"),
     notes: z.string().optional().describe("Speaker notes for this slide"),
+    sizePreset: z
+      .enum(SIZE_PRESET_VALUES)
+      .optional()
+      .describe(
+        "Named canvas size for this slide (social projects). Wins over width/height.",
+      ),
+    width: z
+      .number()
+      .int()
+      .min(MIN_SLIDE_DIM)
+      .max(MAX_SLIDE_DIM)
+      .optional()
+      .describe("Custom canvas width in pixels (requires height)"),
+    height: z
+      .number()
+      .int()
+      .min(MIN_SLIDE_DIM)
+      .max(MAX_SLIDE_DIM)
+      .optional()
+      .describe("Custom canvas height in pixels (requires width)"),
     position: z
       .preprocess((value) => {
         if (typeof value !== "string") return value;
@@ -170,6 +200,9 @@ export default defineAction({
     slideId,
     layout,
     notes,
+    sizePreset,
+    width,
+    height,
     position,
     contextPackId,
     contextModeOverride,
@@ -302,6 +335,12 @@ export default defineAction({
       };
       if (layout) newSlide.layout = layout;
       if (notes) newSlide.notes = notes;
+      // Explicit size wins; social projects fall back to the deck default so
+      // every new asset lands on the project's chosen canvas.
+      const requestedSize =
+        resolveRequestedSlideSize({ sizePreset, width, height }) ??
+        (deck.kind === "social" ? deckDefaultSize(deck) : undefined);
+      if (requestedSize) newSlide.size = requestedSize;
 
       const insertIndex =
         typeof position === "number"

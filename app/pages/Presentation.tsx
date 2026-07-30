@@ -57,6 +57,11 @@ export default function Presentation() {
   if (!deck) {
     return <Navigate to="/" replace />;
   }
+  // Social-asset projects have no presenter flow (mixed canvas sizes) —
+  // bounce deep links back to the editor.
+  if (deck.kind === "social") {
+    return <Navigate to={`/deck/${id}`} replace />;
+  }
 
   const slideParam = searchParams.get("slide");
   const parsedSlide = slideParam ? parseInt(slideParam, 10) : 1;

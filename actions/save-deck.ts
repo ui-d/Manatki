@@ -22,6 +22,7 @@ import { createDeckVersionSnapshot } from "../server/lib/deck-versions.js";
 import {
   assertDesignSystemReadable,
   assertValidAspectRatio,
+  assertValidKind,
   deckDesignSystemId,
   deckHttpError,
   deckTitle,
@@ -65,6 +66,7 @@ export default defineAction({
       const deckId = args.deckId;
       const deck = args.deck as DeckPayload;
       assertValidAspectRatio(deck);
+      assertValidKind(deck);
 
       const db = getDb();
       const now = new Date().toISOString();

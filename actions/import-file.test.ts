@@ -2,10 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockReadUserUploadedFile = vi.hoisted(() => vi.fn());
 const mockPdfText = vi.hoisted(() => vi.fn());
-const mockStartBuilderDesignSystemIndex = vi.hoisted(() => vi.fn());
 const mockGetRequestUserEmail = vi.hoisted(() => vi.fn());
 const mockGetRequestOrgId = vi.hoisted(() => vi.fn());
-const mockUpsertBuilderProxyDesignSystem = vi.hoisted(() => vi.fn());
 const mockPdfParseOptions = vi.hoisted(() => vi.fn());
 const mockPdfSetWorker = vi.hoisted(() => vi.fn());
 const mockPdfDestroy = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
@@ -61,11 +59,6 @@ vi.mock("@agent-native/core/application-state", () => ({
   writeAppState: vi.fn(),
 }));
 
-vi.mock("@agent-native/core/server", () => ({
-  startBuilderDesignSystemIndex: (...args: unknown[]) =>
-    mockStartBuilderDesignSystemIndex(...args),
-}));
-
 vi.mock("@agent-native/core/server/request-context", () => ({
   getRequestUserEmail: (...args: unknown[]) => mockGetRequestUserEmail(...args),
   getRequestOrgId: (...args: unknown[]) => mockGetRequestOrgId(...args),
@@ -73,11 +66,6 @@ vi.mock("@agent-native/core/server/request-context", () => ({
 
 vi.mock("@agent-native/core/sharing", () => ({
   assertAccess: vi.fn(),
-}));
-
-vi.mock("../server/lib/builder-design-system-proxy.js", () => ({
-  upsertBuilderProxyDesignSystem: (...args: unknown[]) =>
-    mockUpsertBuilderProxyDesignSystem(...args),
 }));
 
 vi.mock("./patch-deck.js", () => ({
@@ -96,22 +84,8 @@ beforeEach(() => {
     data: Buffer.from("%PDF-1.7\n"),
     filename: filePath,
   }));
-  mockStartBuilderDesignSystemIndex.mockResolvedValue({
-    ok: true,
-    source: "builder",
-    projectId: "project-1",
-    jobId: "job-1",
-    designSystemId: "ds-1",
-    suggestedTitle: "brand",
-    builderUrl: "https://builder.io/app/design-system-intelligence/ds-1",
-    status: "in-progress",
-  });
   mockGetRequestUserEmail.mockReturnValue("owner@example.com");
   mockGetRequestOrgId.mockReturnValue("org-1");
-  mockUpsertBuilderProxyDesignSystem.mockResolvedValue({
-    localDesignSystemId: "builder-ds-1",
-    instructions: "Builder design-system indexing has started.",
-  });
 });
 
 describe("import-file PDF source extraction", () => {
@@ -184,7 +158,7 @@ describe("import-file PDF source extraction", () => {
     ).rejects.toThrow("No importable text found in this PDF");
   });
 
-  it("starts Builder indexing for .fig files", async () => {
+  it("rejects .fig files with a clear unsupported-format error", async () => {
     const figBuffer = Buffer.from([
       0x66, 0x69, 0x67, 0x2d, 0x6b, 0x69, 0x77, 0x69, 0, 0, 0, 0,
     ]);
@@ -193,43 +167,11 @@ describe("import-file PDF source extraction", () => {
       filename: "brand.fig",
     });
 
-    const result = (await action.run({
-      filePath: "brand.fig",
-      format: "auto",
-    })) as any;
-
-    expect(mockStartBuilderDesignSystemIndex).toHaveBeenCalledWith({
-      projectName: "brand",
-      files: [
-        {
-          name: "brand.fig",
-          data: figBuffer,
-          mimeType: "application/octet-stream",
-        },
-      ],
-    });
-    expect(result).toMatchObject({
-      format: "fig",
-      title: "brand",
-      source: "builder",
-      projectId: "project-1",
-      jobId: "job-1",
-      designSystemId: "ds-1",
-      localDesignSystemId: "builder-ds-1",
-      builderUrl: "https://builder.io/app/design-system-intelligence/ds-1",
-      status: "in-progress",
-    });
-    expect(result.instructions).toContain(
-      "Builder design-system indexing has started",
-    );
-    expect(mockUpsertBuilderProxyDesignSystem).toHaveBeenCalledWith({
-      result: expect.objectContaining({
-        designSystemId: "ds-1",
-        jobId: "job-1",
+    await expect(
+      action.run({
+        filePath: "brand.fig",
+        format: "auto",
       }),
-      ownerEmail: "owner@example.com",
-      orgId: "org-1",
-      projectName: "brand",
-    });
+    ).rejects.toThrow("Figma .fig import is not supported");
   });
 });

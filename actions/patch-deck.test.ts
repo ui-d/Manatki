@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 import {
   applyOperation,
+  OperationSchema,
   resolveDeckColumnUpdates,
   withDeckLock,
   type Operation,
@@ -355,5 +356,120 @@ describe("resolveDeckColumnUpdates", () => {
       resolveDeckColumnUpdates({ title: "T", designSystemId: "ds-1" }, ops)
         .designSystemId,
     ).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Per-slide size + project kind (social projects)
+// ---------------------------------------------------------------------------
+
+describe("applyOperation — slide size and project kind", () => {
+  it("patch-slide sets a per-slide size", () => {
+    const deck = { slides: [{ id: "s1", content: "<p>One</p>" }] };
+    applyOperation(deck, {
+      op: "patch-slide",
+      slideId: "s1",
+      fields: { size: { width: 1080, height: 1080, preset: "ig-square" } },
+    } as Operation);
+    expect((deck.slides[0] as { size?: unknown }).size).toEqual({
+      width: 1080,
+      height: 1080,
+      preset: "ig-square",
+    });
+  });
+
+  it("patch-slide with size: null clears the per-slide size", () => {
+    const deck = {
+      slides: [
+        { id: "s1", content: "<p>One</p>", size: { width: 1080, height: 1080 } },
+      ],
+    };
+    applyOperation(deck, {
+      op: "patch-slide",
+      slideId: "s1",
+      fields: { size: null },
+    } as Operation);
+    expect("size" in deck.slides[0]).toBe(false);
+  });
+
+  it("add-slide stores the provided size", () => {
+    const deck = { slides: [] as unknown[] };
+    applyOperation(deck, {
+      op: "add-slide",
+      slideId: "s1",
+      fields: {
+        content: "<p>Asset</p>",
+        size: { width: 1200, height: 628 },
+      },
+    } as Operation);
+    expect((deck.slides[0] as { size?: unknown }).size).toEqual({
+      width: 1200,
+      height: 628,
+    });
+  });
+
+  it("patch-deck-fields sets kind and defaultSize", () => {
+    const deck = { slides: [] as unknown[] };
+    applyOperation(deck, {
+      op: "patch-deck-fields",
+      fields: { kind: "social", defaultSize: { width: 1080, height: 1920 } },
+    } as Operation);
+    expect((deck as { kind?: string }).kind).toBe("social");
+    expect((deck as { defaultSize?: unknown }).defaultSize).toEqual({
+      width: 1080,
+      height: 1920,
+    });
+  });
+});
+
+describe("OperationSchema — size validation", () => {
+  it("rejects out-of-range dimensions", () => {
+    const parsed = OperationSchema.safeParse({
+      op: "patch-slide",
+      slideId: "s1",
+      fields: { size: { width: 10, height: 1080 } },
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects sizes above the area cap", () => {
+    const parsed = OperationSchema.safeParse({
+      op: "patch-slide",
+      slideId: "s1",
+      fields: { size: { width: 4000, height: 4000 } },
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("drops a preset whose dims don't match", () => {
+    const parsed = OperationSchema.parse({
+      op: "patch-slide",
+      slideId: "s1",
+      fields: { size: { width: 999, height: 999, preset: "ig-square" } },
+    });
+    if (parsed.op !== "patch-slide") throw new Error("wrong op");
+    expect(parsed.fields.size).toEqual({ width: 999, height: 999 });
+  });
+
+  it("keeps a preset whose dims match", () => {
+    const parsed = OperationSchema.parse({
+      op: "patch-slide",
+      slideId: "s1",
+      fields: { size: { width: 1080, height: 1920, preset: "ig-story" } },
+    });
+    if (parsed.op !== "patch-slide") throw new Error("wrong op");
+    expect(parsed.fields.size).toEqual({
+      width: 1080,
+      height: 1920,
+      preset: "ig-story",
+    });
+  });
+
+  it("rejects an invalid project kind", () => {
+    const parsed = OperationSchema.safeParse({
+      op: "patch-deck-fields",
+      fields: { kind: "landing-page" },
+    });
+    expect(parsed.success).toBe(false);
   });
 });

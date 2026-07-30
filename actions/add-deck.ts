@@ -19,6 +19,7 @@ import { notifyClients } from "../server/handlers/decks.js";
 import {
   assertDesignSystemReadable,
   assertValidAspectRatio,
+  assertValidKind,
   deckDesignSystemId,
   deckHttpError,
   deckTitle,
@@ -41,6 +42,7 @@ export default defineAction({
       throw deckHttpError(400, "Deck must have an id");
     }
     assertValidAspectRatio(deck);
+    assertValidKind(deck);
 
     const ownerEmail = getRequestUserEmail();
     if (!ownerEmail) {

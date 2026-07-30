@@ -197,7 +197,7 @@ export function buildDeckDiscovery({
     basePath,
     token,
     instructions:
-      "Use contextUrl to read this shared Slides deck as JSON. Slide numbers are 1-based for users.",
+      "Use contextUrl to read this shared Manatki deck as JSON. Slide numbers are 1-based for users.",
   });
 }
 

@@ -20,7 +20,7 @@ const messages = {
   },
   navigation: {
     settings: "设置",
-    brand: "幻灯片",
+    brand: "Manatki",
     decks: "幻灯片",
     designSystems: "设计系统",
     team: "团队",
@@ -95,8 +95,8 @@ const messages = {
     googlePickerNeedsKeys:
       "Google PickerにはGOOGLE_PICKER_API_KEYとGOOGLE_PICKER_APP_IDが必要です。",
     imageUploadFailed: "画像のアップロードに失敗しました",
-    imageUploadNeedsBuilder:
-      "请从代理编写器的模型菜单连接 Builder.io，以便将图片上传到幻灯片。即使没有提供方，把图片拖到空白画布上仍可发送给代理。",
+    imageUploadNeedsStorage:
+      "Image uploads need file storage. Configure a storage provider (e.g. Vercel Blob) to upload images onto slides. Dropping an image onto the canvas can still send it to the agent without a provider.",
     sentToAgent: "エージェントに送信しました",
     imageUploadGenericError: "この画像のアップロード中に問題が発生しました。",
     uploading: "アップロード中…",
@@ -143,12 +143,12 @@ const messages = {
     presentationNotFound: "未找到演示文稿",
     sharedPresentationExpired:
       "この共有プレゼンテーションは存在しないか期限切れです。",
-    routeNotFoundTitle: "見つかりません - Slides",
-    routeEditorTitle: "エディター — Slides",
-    routeDesignSystemsTitle: "デザインシステム - Slides",
-    routeSettingsTitle: "設定 - Slides",
+    routeNotFoundTitle: "見つかりません - Manatki",
+    routeEditorTitle: "エディター — Manatki",
+    routeDesignSystemsTitle: "デザインシステム - Manatki",
+    routeSettingsTitle: "設定 - Manatki",
     routeSharedTitle: "共享演示文稿",
-    routeTeamTitle: "チーム — Slides",
+    routeTeamTitle: "チーム — Manatki",
     slidePreviewTitle: "スライドプレビュー",
     slideUnavailable: "スライドを利用できません",
     couldNotLoadSlide: "スライドを読み込めませんでした。",
@@ -509,8 +509,8 @@ const messages = {
     backToDecks: "返回幻灯片",
     tryAgain: "重试",
     imageUploadFailed: "图片上传失败",
-    imageUploadNeedsBuilder:
-      "请从代理编写器的模型菜单连接 Builder.io，以便将图片上传到幻灯片。即使没有提供方，把图片拖到空白画布上仍可发送给代理。",
+    imageUploadNeedsStorage:
+      "Image uploads need file storage. Configure a storage provider (e.g. Vercel Blob) to upload images onto slides. Dropping an image onto the canvas can still send it to the agent without a provider.",
     imageAdded: "图片已添加",
     imageUploadError: "上传此图片时出了点问题。",
     exportFailed: "导出失败",
@@ -521,11 +521,6 @@ const messages = {
     slidesAdded_other: "已添加 {{count}} 张幻灯片",
   },
   designSystemSetup: {
-    importedBrand: "导入的品牌",
-    figFileRequired:
-      "请选择 .fig 文件（在 Figma 中：File > Save local copy）。",
-    figFileTooLarge: "文件太大（最大 {{maxSize}}）。",
-    figParseFailed: "无法为该 Figma 文件启动 Builder 索引。",
     updated: "设计系统已更新",
     updateFailed: "更新失败",
     generationStarted: "设计系统生成已开始",
@@ -534,23 +529,12 @@ const messages = {
     newTitle: "新建设计系统",
     editDescription: "更新你的品牌标识。",
     newDescription:
-      "通过 Builder DSI 连接 Figma、代码和可选的 design.md 指引。",
+      "Build a design system from your website, code files, brand documents, and visual references.",
     companyBrand: "公司 / 品牌",
     companyBrandPlaceholder: "Acme Inc. — 我们构建开发者工具...",
-    figmaFile: "连接 Figma",
-    parsingFigmaFile: "正在启动 Builder DSI 索引...",
-    uploadFigDescription: "上传本地 .fig 副本以用于 Builder DSI",
-    builderIndexingStarted: "Builder 索引已启动",
-    builderIndexingDescription:
-      "Builder is indexing {{title}} into a reusable design system.",
-    builderDesignSystemId: "设计系统",
-    builderJobId: "Job",
-    openInBuilder: "在 Builder 中打开",
-    decodeFailed: "解码失败：{{error}}",
     websiteUrl: "网站 URL",
     websitePlaceholder: "example.com 或 Nike",
     add: "添加",
-    githubRepository: "连接代码：GitHub 仓库",
     codeFiles: "连接代码文件",
     codeFilesDrop: "CSS、Tailwind 配置、主题文件、design.md — 拖放或点击",
     documents: "文档和演示文稿",
@@ -571,7 +555,6 @@ const messages = {
     saveChanges: "保存更改",
     continueToGeneration: "继续生成",
     removeItem: "移除 {{item}}",
-    chooseAnotherFile: "选择其他文件",
   },
   home: {
     loadFailed: "无法加载内容",

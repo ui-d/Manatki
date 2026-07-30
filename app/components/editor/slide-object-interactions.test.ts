@@ -81,10 +81,10 @@ describe("slide object interactions", () => {
 
   it("gives clones a distinct persisted identity and drops runtime ids", () => {
     const object = document.createElement("div");
-    object.dataset.builderId = "b-1";
+    object.dataset.mkId = "b-1";
     object.dataset.slideObjectId = "original";
     object.innerHTML = `
-      <span data-builder-id="b-2">Text</span>
+      <span data-mk-id="b-2">Text</span>
       <div data-slide-object-id="nested-object">Nested object</div>
     `;
 
@@ -101,7 +101,7 @@ describe("slide object interactions", () => {
     ].map((node) => node.dataset.slideObjectId);
 
     expect(clone.dataset.slideObjectId).not.toBe(object.dataset.slideObjectId);
-    expect(clone.querySelectorAll("[data-builder-id]")).toHaveLength(0);
+    expect(clone.querySelectorAll("[data-mk-id]")).toHaveLength(0);
     expect(new Set(cloneIds)).toHaveLength(cloneIds.length);
     expect(cloneIds.some((id) => originalIds.has(id))).toBe(false);
     expect(ensureSlideObjectId(object)).toBe("original");
@@ -112,10 +112,10 @@ describe("slide object interactions", () => {
     object.dataset.slideObjectId = "freeform-1";
 
     expect(
-      getSlideSelectionIdentity(object, '[data-builder-id="b-1"]'),
+      getSlideSelectionIdentity(object, '[data-mk-id="b-1"]'),
     ).toEqual({
       selector: '[data-slide-object-id="freeform-1"]',
-      runtimeSelector: '[data-builder-id="b-1"]',
+      runtimeSelector: '[data-mk-id="b-1"]',
       objectId: "freeform-1",
     });
   });
@@ -253,7 +253,7 @@ describe("slide object interactions", () => {
   it("freezes an in-flow text block without removing its layout slot", () => {
     const parent = document.createElement("div");
     const text = document.createElement("h1");
-    text.dataset.builderId = "heading";
+    text.dataset.mkId = "heading";
     text.textContent = "Slide title";
     parent.append(text);
 
@@ -274,7 +274,7 @@ describe("slide object interactions", () => {
     expect(spacer.classList.contains("fmd-layout-spacer")).toBe(true);
     expect(spacer.style.visibility).toBe("hidden");
     expect(spacer.style.width).toBe("420px");
-    expect(spacer.dataset.builderId).toBeUndefined();
+    expect(spacer.dataset.mkId).toBeUndefined();
     expect(text.style.position).toBe("absolute");
     expect(text.style.left).toBe("120px");
     expect(text.style.top).toBe("80px");

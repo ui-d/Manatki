@@ -83,7 +83,7 @@ export function buildSnapshotDiscovery({
     title: deck.title,
     contextUrl: `${normalizedBasePath}/api/share/${encodeURIComponent(token)}`,
     instructions:
-      "Use contextUrl to read this shared Slides snapshot as JSON. This snapshot link is independent of live deck visibility.",
+      "Use contextUrl to read this shared Manatki snapshot as JSON. This snapshot link is independent of live deck visibility.",
   };
 }
 

@@ -124,7 +124,7 @@ import {
 } from "./SlideStyleInspector";
 
 const snapshot: SlideStyleSnapshot = {
-  selector: "[data-builder-id='title']",
+  selector: "[data-mk-id='title']",
   label: "Title",
   tagName: "h1",
   textPreview: "A quiet inspector",

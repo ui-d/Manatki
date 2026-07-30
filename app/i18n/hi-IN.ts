@@ -20,7 +20,7 @@ const messages = {
   },
   navigation: {
     settings: "सेटिंग्स",
-    brand: "स्लाइड",
+    brand: "Manatki",
     decks: "डेक",
     designSystems: "डिज़ाइन सिस्टम",
     team: "टीम",
@@ -97,8 +97,8 @@ const messages = {
     googlePickerNeedsKeys:
       "Google Picker precisa de GOOGLE_PICKER_API_KEY e GOOGLE_PICKER_APP_ID.",
     imageUploadFailed: "Falha ao enviar imagem",
-    imageUploadNeedsBuilder:
-      "स्लाइड पर चित्र अपलोड करने के लिए एजेंट composer के मॉडल मेनू से Builder.io कनेक्ट करें। खाली कैनवास पर चित्र छोड़ने से वह बिना provider के भी एजेंट को भेजा जा सकता है।",
+    imageUploadNeedsStorage:
+      "Image uploads need file storage. Configure a storage provider (e.g. Vercel Blob) to upload images onto slides. Dropping an image onto the canvas can still send it to the agent without a provider.",
     sentToAgent: "Enviado ao agente",
     imageUploadGenericError: "Algo deu errado ao enviar esta imagem.",
     uploading: "Enviando…",
@@ -145,12 +145,12 @@ const messages = {
     presentationNotFound: "प्रस्तुति नहीं मिली",
     sharedPresentationExpired:
       "Esta apresentação compartilhada não existe ou expirou.",
-    routeNotFoundTitle: "Não encontrado - Slides",
-    routeEditorTitle: "संपादक — Slides",
-    routeDesignSystemsTitle: "Sistemas de design - Slides",
-    routeSettingsTitle: "Configurações - Slides",
+    routeNotFoundTitle: "Não encontrado - Manatki",
+    routeEditorTitle: "संपादक — Manatki",
+    routeDesignSystemsTitle: "Sistemas de design - Manatki",
+    routeSettingsTitle: "Configurações - Manatki",
     routeSharedTitle: "साझा प्रस्तुति",
-    routeTeamTitle: "Equipe — Slides",
+    routeTeamTitle: "Equipe — Manatki",
     slidePreviewTitle: "Prévia do slide",
     slideUnavailable: "Slide indisponível",
     couldNotLoadSlide: "Não foi possível carregar o slide.",
@@ -517,8 +517,8 @@ const messages = {
     backToDecks: "डेक पर वापस जाएं",
     tryAgain: "फिर कोशिश करें",
     imageUploadFailed: "चित्र अपलोड विफल",
-    imageUploadNeedsBuilder:
-      "स्लाइड पर चित्र अपलोड करने के लिए एजेंट composer के मॉडल मेनू से Builder.io कनेक्ट करें। खाली कैनवास पर चित्र छोड़ने से वह बिना provider के भी एजेंट को भेजा जा सकता है।",
+    imageUploadNeedsStorage:
+      "Image uploads need file storage. Configure a storage provider (e.g. Vercel Blob) to upload images onto slides. Dropping an image onto the canvas can still send it to the agent without a provider.",
     imageAdded: "चित्र जोड़ा गया",
     imageUploadError: "यह चित्र अपलोड करते समय कुछ गलत हुआ।",
     exportFailed: "निर्यात विफल",
@@ -529,10 +529,6 @@ const messages = {
     slidesAdded_other: "{{count}} स्लाइड जोड़ी गईं",
   },
   designSystemSetup: {
-    importedBrand: "आयात किया गया ब्रांड",
-    figFileRequired: "कृपया .fig फ़ाइल चुनें (Figma में: File > Save local copy)।",
-    figFileTooLarge: "फ़ाइल बहुत बड़ी है (अधिकतम {{maxSize}})।",
-    figParseFailed: "उस Figma फ़ाइल के लिए Builder indexing शुरू नहीं हो सकी।",
     updated: "डिज़ाइन सिस्टम अपडेट हुआ",
     updateFailed: "अपडेट विफल",
     generationStarted: "डिज़ाइन सिस्टम जनरेशन शुरू हुई",
@@ -542,23 +538,12 @@ const messages = {
     newTitle: "नया डिज़ाइन सिस्टम",
     editDescription: "अपनी ब्रांड पहचान अपडेट करें।",
     newDescription:
-      "Figma, कोड और वैकल्पिक design.md मार्गदर्शन को Builder DSI से कनेक्ट करें.",
+      "Build a design system from your website, code files, brand documents, and visual references.",
     companyBrand: "कंपनी / ब्रांड",
     companyBrandPlaceholder: "Acme Inc. — हम डेवलपर टूल बनाते हैं...",
-    figmaFile: "Figma कनेक्ट करें",
-    parsingFigmaFile: "Builder DSI indexing शुरू की जा रही है...",
-    uploadFigDescription: "Builder DSI के लिए स्थानीय .fig कॉपी अपलोड करें",
-    builderIndexingStarted: "Builder indexing शुरू हुई",
-    builderIndexingDescription:
-      "Builder is indexing {{title}} into a reusable design system.",
-    builderDesignSystemId: "डिज़ाइन सिस्टम",
-    builderJobId: "Job",
-    openInBuilder: "Builder में खोलें",
-    decodeFailed: "डिकोडिंग विफल: {{error}}",
     websiteUrl: "वेबसाइट URL",
     websitePlaceholder: "example.com या Nike",
     add: "जोड़ें",
-    githubRepository: "कोड कनेक्ट करें: GitHub रिपॉज़िटरी",
     codeFiles: "कोड फ़ाइलें कनेक्ट करें",
     codeFilesDrop:
       "CSS, Tailwind कॉन्फ़िग, थीम फ़ाइलें, design.md — ड्रॉप करें या क्लिक करें",
@@ -580,7 +565,6 @@ const messages = {
     saveChanges: "बदलाव सहेजें",
     continueToGeneration: "जनरेशन पर जारी रखें",
     removeItem: "{{item}} हटाएं",
-    chooseAnotherFile: "दूसरी फ़ाइल चुनें",
   },
   home: {
     loadFailed: "आपका कॉन्टेंट लोड नहीं हो सका",

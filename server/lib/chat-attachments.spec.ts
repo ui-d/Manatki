@@ -24,7 +24,7 @@ describe("prepareSlidesChatAttachments", () => {
     });
 
     const result = await prepareSlidesChatAttachments({
-      ownerEmail: "adam@builder.io",
+      ownerEmail: "adam@example.com",
       message: "put this image into the current slide",
       attachments: [
         {
@@ -38,7 +38,7 @@ describe("prepareSlidesChatAttachments", () => {
 
     expect(saveUploadedReferenceFileMock).toHaveBeenCalledTimes(1);
     expect(saveUploadedReferenceFileMock).toHaveBeenCalledWith({
-      email: "adam@builder.io",
+      email: "adam@example.com",
       originalName: "editor-ai.jpeg",
       data: Buffer.from([0xff, 0xd8, 0xff, 0x00]),
       type: "image/jpeg",
@@ -72,7 +72,7 @@ describe("prepareSlidesChatAttachments", () => {
     const data = `data:image/jpeg;base64,${Buffer.alloc(10 * 1024 * 1024 + 1).toString("base64")}`;
 
     const result = await prepareSlidesChatAttachments({
-      ownerEmail: "adam@builder.io",
+      ownerEmail: "adam@example.com",
       message: "analyze this screenshot",
       attachments: [
         {
@@ -104,7 +104,7 @@ describe("prepareSlidesChatAttachments", () => {
     });
 
     const result = await prepareSlidesChatAttachments({
-      ownerEmail: "adam@builder.io",
+      ownerEmail: "adam@example.com",
       message: "use this visual reference",
       attachments: [
         {
@@ -139,7 +139,7 @@ describe("prepareSlidesChatAttachments", () => {
     });
 
     const result = await prepareSlidesChatAttachments({
-      ownerEmail: "adam@builder.io",
+      ownerEmail: "adam@example.com",
       message: "use this logo",
       attachments: [
         {
@@ -153,7 +153,7 @@ describe("prepareSlidesChatAttachments", () => {
 
     expect(saveUploadedReferenceFileMock).toHaveBeenCalledTimes(1);
     expect(saveUploadedReferenceFileMock).toHaveBeenCalledWith({
-      email: "adam@builder.io",
+      email: "adam@example.com",
       originalName: "vector.svg",
       data: Buffer.from("<svg/>"),
       type: "image/svg+xml",
@@ -178,7 +178,7 @@ describe("prepareSlidesChatAttachments", () => {
     });
 
     const result = await prepareSlidesChatAttachments({
-      ownerEmail: "adam@builder.io",
+      ownerEmail: "adam@example.com",
       message: "recreate this deck",
       attachments: [
         {
@@ -200,7 +200,7 @@ describe("prepareSlidesChatAttachments", () => {
 
   it("keeps unsupported attachments out of the slides upload context", async () => {
     const result = await prepareSlidesChatAttachments({
-      ownerEmail: "adam@builder.io",
+      ownerEmail: "adam@example.com",
       message: "use this file",
       attachments: [
         {

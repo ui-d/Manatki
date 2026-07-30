@@ -17,6 +17,7 @@ import {
   getAspectRatioDims,
   ASPECT_RATIO_VALUES,
 } from "../shared/aspect-ratios.js";
+import { isUniformSize } from "../shared/slide-size.js";
 
 /**
  * Extract inline style value for a given property from a style string.
@@ -376,6 +377,12 @@ export default defineAction({
     const row = access.resource;
     const deckData = JSON.parse(row.data);
     const slides = deckData.slides || [];
+    if (!isUniformSize(slides, deckData.aspectRatio)) {
+      throw new Error(
+        "This project has mixed asset sizes — PPTX requires one uniform slide size. " +
+          "Use the PNG export for social assets instead.",
+      );
+    }
     const rawAspectRatio = deckData.aspectRatio;
     const aspectRatio: AspectRatio | undefined = ASPECT_RATIO_VALUES.includes(
       rawAspectRatio,
@@ -400,7 +407,7 @@ export default defineAction({
       });
       pptx.layout = "AGENT_NATIVE";
     }
-    pptx.author = "Agent Native Slides";
+    pptx.author = "Manatki";
     pptx.title = row.title;
 
     for (const [slideIndex, slide] of slides.entries()) {

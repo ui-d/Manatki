@@ -22,7 +22,7 @@ docs, tests, fixtures, generated prompts, screenshots, seed data, and extension
 HTML just as much as production code.
 
 Do not paste or invent real-looking API keys, bearer tokens, OAuth refresh
-tokens, webhook URLs, signing secrets, private Builder/internal data, or customer
+tokens, webhook URLs, signing secrets, private/internal data, or customer
 data into the repo. Examples must use obvious placeholders such as
 `<OPENAI_API_KEY>`, `${keys.SLACK_WEBHOOK}`, `sk-test-example`, or
 `example.customer@example.com`. Test literals should be clearly fake and must
@@ -310,7 +310,7 @@ Run `pnpm action db-check-scoping` to verify. Use `--require-org` for multi-org 
 - [ ] Server-side fetches of user/agent URLs use `ssrfSafeFetch`, not bare `fetch`
 - [ ] Secrets stored via `saveCredential` / the vault (encrypted), never raw in `settings` or responses
 - [ ] No hardcoded API keys, tokens, webhook URLs, signing secrets, real
-      credential-looking strings, private Builder/internal data, or customer data
+      credential-looking strings, private/internal data, or customer data
 - [ ] New env vars in `.env` only, not committed
 - [ ] New user-data tables have `owner_email` column
 - [ ] Custom routes call `getSession` and reject unauthenticated requests

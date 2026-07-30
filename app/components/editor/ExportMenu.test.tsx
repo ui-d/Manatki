@@ -51,6 +51,9 @@ vi.mock("@agent-native/core/client/i18n", () => ({
         "editorExport.exportGoogleSlidesError":
           "Could not export Google Slides.",
         "editorExport.exportHtmlError": "Could not export HTML.",
+        "editorExport.downloadPng": "Download PNG (current asset)",
+        "editorExport.downloadAllPngZip": "Download all as ZIP",
+        "editorExport.exportPngError": "Could not export PNG.",
       }) as Record<string, string>
     )[key] ?? key,
 }));
@@ -284,5 +287,56 @@ describe("<ExportMenu>", () => {
       "/_agent-native/actions/export-html",
     );
     expect(URL.createObjectURL).toHaveBeenCalled();
+  });
+});
+
+describe("<ExportMenu> — social projects", () => {
+  it("shows PNG exports and hides presentation exports for social kind", async () => {
+    renderMenu({
+      deckKind: "social",
+      onExportPngCurrent: vi.fn(),
+      onExportPngZip: vi.fn(),
+    });
+
+    const trigger = screen.getByRole("button", { name: /export/i });
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+
+    expect(
+      await screen.findByText("Download PNG (current asset)"),
+    ).toBeTruthy();
+    expect(screen.getByText("Download all as ZIP")).toBeTruthy();
+    expect(screen.queryByText("Export as PPTX")).toBeNull();
+    expect(screen.queryByText("Export PDF")).toBeNull();
+    expect(screen.queryByText("Download as HTML")).toBeNull();
+    expect(screen.queryByText("Open in Google Slides")).toBeNull();
+  });
+
+  it("keeps presentation exports and hides PNG entries for classic decks", async () => {
+    renderMenu({ onExportPngCurrent: vi.fn(), onExportPngZip: vi.fn() });
+
+    const trigger = screen.getByRole("button", { name: /export/i });
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+
+    expect(await screen.findByText("Export as PPTX")).toBeTruthy();
+    expect(screen.queryByText("Download PNG (current asset)")).toBeNull();
+    expect(screen.queryByText("Download all as ZIP")).toBeNull();
+  });
+
+  it("invokes the PNG handler and surfaces failures as a toast", async () => {
+    const onExportPngCurrent = vi
+      .fn()
+      .mockRejectedValue(new Error("slide not rendered"));
+    renderMenu({ deckKind: "social", onExportPngCurrent });
+
+    const trigger = screen.getByRole("button", { name: /export/i });
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByText("Download PNG (current asset)"));
+
+    await waitFor(() => expect(onExportPngCurrent).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(toastErrorMock).toHaveBeenCalledWith("Export failed", {
+        description: "slide not rendered",
+      }),
+    );
   });
 });

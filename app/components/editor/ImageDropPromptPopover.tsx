@@ -35,7 +35,7 @@ interface ImageDropPromptPopoverProps {
  * what to do with it, and hands the task off to the agent chat.
  *
  * Prefers a hosted CDN URL via `/api/assets/upload` when a file-upload
- * provider (Builder.io / S3 / …) is configured. When nothing is configured,
+ * provider (Vercel Blob / S3 / …) is configured. When nothing is configured,
  * falls back to an inline data-URL attachment so the drop still reaches the
  * agent instead of toasting a 503.
  *

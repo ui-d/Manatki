@@ -26,7 +26,7 @@ import {
   listGoogleDocsAccounts,
 } from "../lib/google-docs-oauth.js";
 
-const OAUTH_STATE_APP_ID = process.env.APP_NAME || "slides";
+const OAUTH_STATE_APP_ID = process.env.APP_NAME || "manatki";
 
 function permissionMessage(error: unknown): string {
   const message =

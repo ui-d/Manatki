@@ -23,6 +23,7 @@ import {
 } from "react";
 
 import type { AspectRatio } from "@/lib/aspect-ratios";
+import type { DeckKind, SlideSize } from "@/lib/slide-size";
 
 // ---------------------------------------------------------------------------
 // Granular persistence types
@@ -33,7 +34,11 @@ type GranularOp =
   | {
       op: "patch-slide";
       slideId: string;
-      fields: Partial<Omit<Slide, "id">>;
+      // `size: null` clears the per-slide canvas back to the deck default
+      // (mirrors the server's nullable size field in patch-deck.ts).
+      fields: Partial<Omit<Slide, "id" | "size">> & {
+        size?: SlideSize | null;
+      };
     }
   | { op: "delete-slide"; slideId: string; allowEmpty?: boolean }
   | { op: "reorder-slides"; orderedIds: string[] }
@@ -46,6 +51,7 @@ type GranularOp =
         notes?: string;
         layout?: string;
         background?: string;
+        size?: SlideSize;
       };
     }
   | {
@@ -104,6 +110,9 @@ export interface Slide {
   transition?: "instant" | "none" | "fade" | "slide" | "zoom";
   /** Per-element animations (ordered). Each click reveals the next step. */
   animations?: SlideAnimation[];
+  /** Per-slide canvas size in pixels (social projects). Overrides the
+   * deck-level aspectRatio; absent on classic deck slides. */
+  size?: SlideSize;
   /** @deprecated Use animations instead */
   splitByParagraph?: boolean;
 }
@@ -139,6 +148,11 @@ export interface Deck {
   starred?: boolean;
   /** Slide aspect ratio (defaults to 16:9 when absent for backwards compat) */
   aspectRatio?: AspectRatio;
+  /** Project kind — absent or "deck" is a classic presentation; "social" is a
+   * mixed-size marketing-asset collection (per-slide size, PNG export). */
+  kind?: DeckKind;
+  /** Default canvas for new slides in a social project. */
+  defaultSize?: SlideSize;
 }
 
 interface DeckContextType {
@@ -147,7 +161,12 @@ interface DeckContextType {
   loadError: boolean;
   createDeck: (
     title?: string,
-    options?: { noDefaultSlides?: boolean; designSystemId?: string | null },
+    options?: {
+      noDefaultSlides?: boolean;
+      designSystemId?: string | null;
+      kind?: DeckKind;
+      defaultSize?: SlideSize;
+    },
   ) => Deck;
   ensureDeckPersisted: (id: string) => Promise<boolean>;
   /**
@@ -178,7 +197,9 @@ interface DeckContextType {
   updateSlide: (
     deckId: string,
     slideId: string,
-    updates: Partial<Omit<Slide, "id">>,
+    updates: Partial<Omit<Slide, "id" | "size">> & {
+      size?: SlideSize | null;
+    },
   ) => void;
   deleteSlide: (deckId: string, slideId: string) => void;
   duplicateSlide: (deckId: string, slideId: string) => void;
@@ -502,7 +523,14 @@ export function applyOpToDeck(deck: Deck, op: PatchDeckOp): Deck {
       const slides = deck.slides.map((s) => {
         if (s.id !== op.slideId) return s;
         changed = true;
-        return { ...s, ...op.fields };
+        const { size, ...rest } = op.fields;
+        const next: Slide = { ...s, ...rest };
+        if (size !== undefined) {
+          // null clears the per-slide canvas back to the deck default.
+          if (size === null) delete next.size;
+          else next.size = size;
+        }
+        return next;
       });
       if (!changed) return deck; // slide concurrently deleted — skip
       return { ...deck, slides, updatedAt: new Date().toISOString() };
@@ -546,6 +574,7 @@ export function applyOpToDeck(deck: Deck, op: PatchDeckOp): Deck {
         ...(op.fields.background !== undefined
           ? { background: op.fields.background }
           : {}),
+        ...(op.fields.size !== undefined ? { size: op.fields.size } : {}),
       };
       const slides = [...deck.slides];
       const afterIdx = op.afterSlideId
@@ -635,7 +664,10 @@ export function deriveInverseOp(
         // Capture the prior value for every field this op touches, so undo
         // restores exactly what changed (including clearing fields back to
         // undefined).
-        (priorFields as Record<string, unknown>)[key] = prior[key];
+        // `size` uses null as its explicit clear signal so the server-side
+        // patch also removes it (undefined keys drop out of the JSON payload).
+        (priorFields as Record<string, unknown>)[key] =
+          key === "size" && prior[key] === undefined ? null : prior[key];
       }
       return [{ op: "patch-slide", slideId: op.slideId, fields: priorFields }];
     }
@@ -660,6 +692,7 @@ export function deriveInverseOp(
             ...(prior.background !== undefined
               ? { background: prior.background }
               : {}),
+            ...(prior.size !== undefined ? { size: prior.size } : {}),
           },
         },
         {
@@ -1649,7 +1682,12 @@ export function DeckProvider({ children }: { children: ReactNode }) {
   const createDeck = useCallback(
     (
       title?: string,
-      options?: { noDefaultSlides?: boolean; designSystemId?: string | null },
+      options?: {
+        noDefaultSlides?: boolean;
+        designSystemId?: string | null;
+        kind?: DeckKind;
+        defaultSize?: SlideSize;
+      },
     ): Deck => {
       const insertIndex = decksRef.current.length;
       const newDeck: Deck = {
@@ -1659,24 +1697,42 @@ export function DeckProvider({ children }: { children: ReactNode }) {
         updatedAt: new Date().toISOString(),
         createdByMe: true,
         designSystemId: options?.designSystemId ?? undefined,
+        ...(options?.kind ? { kind: options.kind } : {}),
+        ...(options?.defaultSize ? { defaultSize: options.defaultSize } : {}),
         slides: options?.noDefaultSlides
           ? []
-          : [
-              {
-                id: nanoid(8),
-                content: defaultSlideContent.title,
-                notes: "",
-                layout: "title",
-                background: "bg-[#000000]",
-              },
-              {
-                id: nanoid(8),
-                content: defaultSlideContent.content,
-                notes: "",
-                layout: "content",
-                background: "bg-[#000000]",
-              },
-            ],
+          : options?.kind === "social"
+            ? [
+                // One blank asset on the project's default canvas.
+                {
+                  id: nanoid(8),
+                  content: defaultSlideContent.blank,
+                  notes: "",
+                  layout: "blank" as const,
+                  background: "bg-[#000000]",
+                  size: options.defaultSize ?? {
+                    width: 1080,
+                    height: 1080,
+                    preset: "ig-square",
+                  },
+                },
+              ]
+            : [
+                {
+                  id: nanoid(8),
+                  content: defaultSlideContent.title,
+                  notes: "",
+                  layout: "title",
+                  background: "bg-[#000000]",
+                },
+                {
+                  id: nanoid(8),
+                  content: defaultSlideContent.content,
+                  notes: "",
+                  layout: "content",
+                  background: "bg-[#000000]",
+                },
+              ],
       };
       // Save to API immediately (not debounced). Track as pending so the
       // poll doesn't wipe the optimistic deck before the POST completes.
@@ -1901,15 +1957,19 @@ export function DeckProvider({ children }: { children: ReactNode }) {
   const addSlide = useCallback(
     (deckId: string, layout: SlideLayout = "content", afterIndex?: number) => {
       markDeckDirty(deckId);
+      const before = decksRef.current.find((d) => d.id === deckId);
+      // Social projects: new assets land on the project's default canvas.
+      const defaultSize =
+        before?.kind === "social" ? before.defaultSize : undefined;
       const newSlide: Slide = {
         id: nanoid(8),
         content: defaultSlideContent[layout],
         notes: "",
         layout,
         background: "bg-[#000000]",
+        ...(defaultSize ? { size: defaultSize } : {}),
       };
 
-      const before = decksRef.current.find((d) => d.id === deckId);
       let afterSlideId: string | undefined;
       setDecksLocal((prev) =>
         prev.map((d) => {
@@ -1935,6 +1995,7 @@ export function DeckProvider({ children }: { children: ReactNode }) {
           notes: newSlide.notes,
           layout: newSlide.layout,
           background: newSlide.background,
+          ...(newSlide.size ? { size: newSlide.size } : {}),
         },
       };
       enqueueDeckOp(deckId, op);
@@ -1946,7 +2007,13 @@ export function DeckProvider({ children }: { children: ReactNode }) {
   );
 
   const updateSlide = useCallback(
-    (deckId: string, slideId: string, updates: Partial<Omit<Slide, "id">>) => {
+    (
+      deckId: string,
+      slideId: string,
+      updates: Partial<Omit<Slide, "id" | "size">> & {
+        size?: SlideSize | null;
+      },
+    ) => {
       markDeckDirty(deckId);
       const label = updates.layout
         ? "Change layout"
@@ -1954,16 +2021,25 @@ export function DeckProvider({ children }: { children: ReactNode }) {
           ? "Change background"
           : updates.content
             ? "Update content"
-            : "Edit slide";
+            : updates.size !== undefined
+              ? "Resize slide"
+              : "Edit slide";
       const before = decksRef.current.find((d) => d.id === deckId);
       setDecksLocal((prev: Deck[]) =>
         prev.map((d) => {
           if (d.id !== deckId) return d;
           return {
             ...d,
-            slides: d.slides.map((s) =>
-              s.id === slideId ? { ...s, ...updates } : s,
-            ),
+            slides: d.slides.map((s) => {
+              if (s.id !== slideId) return s;
+              const { size, ...rest } = updates;
+              const next: Slide = { ...s, ...rest };
+              if (size !== undefined) {
+                if (size === null) delete next.size;
+                else next.size = size;
+              }
+              return next;
+            }),
             updatedAt: new Date().toISOString(),
           };
         }),
@@ -2047,6 +2123,7 @@ export function DeckProvider({ children }: { children: ReactNode }) {
           notes: rest.notes,
           layout: rest.layout,
           background: rest.background,
+          ...(rest.size ? { size: rest.size } : {}),
         },
       };
       enqueueDeckOp(deckId, op);

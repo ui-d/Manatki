@@ -16,6 +16,7 @@ import {
   getAspectRatioDims,
   ASPECT_RATIO_VALUES,
 } from "../shared/aspect-ratios.js";
+import { isUniformSize } from "../shared/slide-size.js";
 
 /**
  * Minimal server-side HTML sanitizer for exported slide content.
@@ -283,6 +284,12 @@ export default defineAction({
 
     if (slides.length === 0) {
       return { error: "Cannot export empty deck" };
+    }
+    if (!isUniformSize(slides, rawAspectRatio)) {
+      return {
+        error:
+          "This project has mixed asset sizes — the standalone HTML slideshow needs one uniform slide size. Export PNGs for social assets instead.",
+      };
     }
 
     const html = buildStandaloneHtml(row.title, slides, aspectRatio);

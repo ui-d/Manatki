@@ -27,6 +27,8 @@ import { normalizeSlidePadding } from "../app/lib/normalize-slide-padding.js";
 import { getDb, schema } from "../server/db/index.js";
 import { notifyClients } from "../server/handlers/decks.js";
 import { ASPECT_RATIO_VALUES } from "../shared/aspect-ratios.js";
+import { DECK_KIND_VALUES } from "../shared/slide-size.js";
+import { SlideSizeSchema } from "./_deck-write.js";
 
 // ---------------------------------------------------------------------------
 // Per-deck write lock — same pattern as add-slide.ts so all client and agent
@@ -74,6 +76,7 @@ const SlideFieldsSchema = z.object({
   animations: z.array(z.unknown()).optional(),
   kind: z.enum(["html", "image"]).optional(),
   screenshots: z.array(z.string()).optional(),
+  size: SlideSizeSchema.nullable().optional(),
 });
 
 /** Update fields on a single existing slide */
@@ -111,6 +114,7 @@ const AddSlideOp = z.object({
       notes: z.string().optional(),
       layout: z.string().optional(),
       background: z.string().optional(),
+      size: SlideSizeSchema.optional(),
     })
     .passthrough(),
 });
@@ -126,6 +130,8 @@ const PatchDeckFieldsOp = z.object({
         .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
         .optional(),
       aspectRatio: z.enum(ASPECT_RATIO_VALUES).optional(),
+      kind: z.enum(DECK_KIND_VALUES).optional(),
+      defaultSize: SlideSizeSchema.optional(),
       shareToken: z.string().optional(),
       visibility: z.enum(["private", "org", "public"]).optional(),
       starred: z.boolean().optional(),
@@ -212,6 +218,11 @@ export function applyOperation(deck: any, op: Operation): void {
       if (fields.kind !== undefined) slide.kind = fields.kind;
       if (fields.screenshots !== undefined)
         slide.screenshots = fields.screenshots;
+      if (fields.size !== undefined) {
+        // null clears the per-slide size back to the deck-level default.
+        if (fields.size === null) delete slide.size;
+        else slide.size = fields.size;
+      }
       break;
     }
 
@@ -268,6 +279,9 @@ export function applyOperation(deck: any, op: Operation): void {
       if (fields.background !== undefined) {
         newSlide.background = fields.background;
       }
+      if (fields.size !== undefined) {
+        newSlide.size = fields.size;
+      }
       const insertAfterIdx = afterSlideId
         ? slides.findIndex((s: { id: string }) => s.id === afterSlideId)
         : -1;
@@ -288,6 +302,9 @@ export function applyOperation(deck: any, op: Operation): void {
       if (fields.tweaks !== undefined) deck.tweaks = fields.tweaks;
       if (fields.aspectRatio !== undefined)
         deck.aspectRatio = fields.aspectRatio;
+      if (fields.kind !== undefined) deck.kind = fields.kind;
+      if (fields.defaultSize !== undefined)
+        deck.defaultSize = fields.defaultSize;
       if (fields.shareToken !== undefined) deck.shareToken = fields.shareToken;
       if (fields.visibility !== undefined) deck.visibility = fields.visibility;
       if (fields.starred !== undefined) deck.starred = fields.starred;

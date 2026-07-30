@@ -43,6 +43,13 @@ The `data` column stores a JSON object:
 
 Each slide has an `id`, HTML `content`, and optional `layout` type.
 
+Deck-level optional fields: `aspectRatio` (16:9 default), `kind`
+(`"deck"` default, or `"social"` for mixed-size marketing-asset projects),
+and `defaultSize` (`{ width, height, preset? }` — the canvas new slides get
+in a social project). Each slide may carry its own `size` with the same
+shape, which overrides the deck aspect ratio for that slide only. See
+`create-social-assets` for the social workflow.
+
 ## Reading Decks
 
 **From scripts:**

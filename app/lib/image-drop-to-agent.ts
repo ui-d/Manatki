@@ -37,7 +37,7 @@ export function isMissingUploadProviderError(
   return (
     lower.includes("no file upload provider") ||
     lower.includes("registerfileuploadprovider") ||
-    lower.includes("connect builder.io")
+    lower.includes("file storage is not configured")
   );
 }
 
@@ -74,7 +74,7 @@ export function buildImageDropAgentPayload(args: {
   if (!args.dataUrl) {
     throw new Error(
       args.upload.error ||
-        "Image upload failed. Connect Builder.io from the agent composer model menu, or register a custom provider via registerFileUploadProvider().",
+        "Image upload failed. Configure a file upload provider (e.g. Vercel Blob) or register a custom one via registerFileUploadProvider().",
     );
   }
 

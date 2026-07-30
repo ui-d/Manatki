@@ -20,7 +20,7 @@ const messages = {
   },
   navigation: {
     settings: "Configurações",
-    brand: "Slides",
+    brand: "Manatki",
     decks: "Decks",
     designSystems: "Sistemas de design",
     team: "Equipe",
@@ -98,8 +98,8 @@ const messages = {
     googlePickerNeedsKeys:
       "Google Picker precisa de GOOGLE_PICKER_API_KEY e GOOGLE_PICKER_APP_ID.",
     imageUploadFailed: "Falha ao enviar imagem",
-    imageUploadNeedsBuilder:
-      "Conecte o Builder.io no menu de modelo do compositor do agente para enviar imagens aos slides. Soltar uma imagem na tela vazia ainda pode enviá-la ao agente sem provedor.",
+    imageUploadNeedsStorage:
+      "Image uploads need file storage. Configure a storage provider (e.g. Vercel Blob) to upload images onto slides. Dropping an image onto the canvas can still send it to the agent without a provider.",
     sentToAgent: "Enviado ao agente",
     imageUploadGenericError: "Algo deu errado ao enviar esta imagem.",
     uploading: "Enviando…",
@@ -146,12 +146,12 @@ const messages = {
     presentationNotFound: "Apresentação não encontrada",
     sharedPresentationExpired:
       "Esta apresentação compartilhada não existe ou expirou.",
-    routeNotFoundTitle: "Não encontrado - Slides",
-    routeEditorTitle: "Editor de slides — Slides",
-    routeDesignSystemsTitle: "Sistemas de design - Slides",
-    routeSettingsTitle: "Configurações - Slides",
+    routeNotFoundTitle: "Não encontrado - Manatki",
+    routeEditorTitle: "Editor de slides — Manatki",
+    routeDesignSystemsTitle: "Sistemas de design - Manatki",
+    routeSettingsTitle: "Configurações - Manatki",
     routeSharedTitle: "Apresentação compartilhada",
-    routeTeamTitle: "Equipe — Slides",
+    routeTeamTitle: "Equipe — Manatki",
     slidePreviewTitle: "Prévia do slide",
     slideUnavailable: "Slide indisponível",
     couldNotLoadSlide: "Não foi possível carregar o slide.",
@@ -529,8 +529,8 @@ const messages = {
     backToDecks: "Volver a decks",
     tryAgain: "Intentar de nuevo",
     imageUploadFailed: "Error al subir imagen",
-    imageUploadNeedsBuilder:
-      "Conecte o Builder.io no menu de modelo do compositor do agente para enviar imagens aos slides. Soltar uma imagem na tela vazia ainda pode enviá-la ao agente sem provedor.",
+    imageUploadNeedsStorage:
+      "Image uploads need file storage. Configure a storage provider (e.g. Vercel Blob) to upload images onto slides. Dropping an image onto the canvas can still send it to the agent without a provider.",
     imageAdded: "Imagen añadida",
     imageUploadError: "Algo salió mal al subir esta imagen.",
     exportFailed: "Error al exportar",
@@ -542,12 +542,6 @@ const messages = {
     slidesAdded_many: "{{count}} diapositivas añadidas",
   },
   designSystemSetup: {
-    importedBrand: "Marca importada",
-    figFileRequired:
-      "Escolha um arquivo .fig (no Figma: File > Save local copy).",
-    figFileTooLarge: "Arquivo grande demais (máx. {{maxSize}}).",
-    figParseFailed:
-      "Não foi possível iniciar a indexação do Builder para esse arquivo Figma.",
     updated: "Sistema de design atualizado",
     updateFailed: "Falha ao atualizar",
     generationStarted: "Geração do sistema de design iniciada",
@@ -557,24 +551,13 @@ const messages = {
     newTitle: "Novo sistema de design",
     editDescription: "Atualize sua identidade de marca.",
     newDescription:
-      "Conecte Figma, código e orientações opcionais de design.md pelo Builder DSI.",
+      "Build a design system from your website, code files, brand documents, and visual references.",
     companyBrand: "Empresa / Marca",
     companyBrandPlaceholder:
       "Acme Inc. — Criamos ferramentas para desenvolvedores...",
-    figmaFile: "Conectar Figma",
-    parsingFigmaFile: "Iniciando indexação do Builder DSI...",
-    uploadFigDescription: "Envie uma cópia local .fig para o Builder DSI",
-    builderIndexingStarted: "Indexação do Builder iniciada",
-    builderIndexingDescription:
-      "Builder is indexing {{title}} into a reusable design system.",
-    builderDesignSystemId: "Sistema de design",
-    builderJobId: "Job",
-    openInBuilder: "Abrir no Builder",
-    decodeFailed: "Falha na decodificação: {{error}}",
     websiteUrl: "URL do site",
     websitePlaceholder: "example.com ou Nike",
     add: "Adicionar",
-    githubRepository: "Conectar código: repositório GitHub",
     codeFiles: "Conectar arquivos de código",
     codeFilesDrop:
       "CSS, configuração do Tailwind, arquivos de tema, design.md — solte ou clique",
@@ -598,7 +581,6 @@ const messages = {
     saveChanges: "Salvar alterações",
     continueToGeneration: "Continuar para geração",
     removeItem: "Remover {{item}}",
-    chooseAnotherFile: "Escolher outro arquivo",
   },
   home: {
     loadFailed: "Não foi possível carregar seu conteúdo",

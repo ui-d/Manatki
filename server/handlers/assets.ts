@@ -103,13 +103,13 @@ export function canSaveAsUploadedAsset(args: {
 /**
  * Upload an image asset through the framework's `uploadFile()` provider chain.
  *
- * All uploads go to the configured remote provider — Builder.io by default,
+ * All uploads go to the configured remote provider (e.g. Vercel Blob),
  * or any provider registered via `registerFileUploadProvider()` (S3, R2, etc.).
  * There is intentionally NO local-disk fallback: writing into the source tree
  * (`public/uploads/`) pollutes git, doesn't persist on serverless deploys,
  * and isn't reachable across nodes. If no provider is configured, the request
  * fails with a clear 503 instructing the caller to configure one — connect
- * Builder.io or register a custom provider.
+ * a storage provider or register a custom one.
  */
 export async function uploadImageAsset(args: {
   email: string;
@@ -144,7 +144,7 @@ export async function uploadImageAsset(args: {
 
   if (!result) {
     const err: Error & { statusCode?: number } = new Error(
-      "No file upload provider is configured. Connect Builder.io from the agent composer model menu, or register a custom provider via registerFileUploadProvider().",
+      "No file upload provider is configured. Configure file storage (e.g. Vercel Blob) or register a custom provider via registerFileUploadProvider().",
     );
     err.statusCode = 503;
     throw err;
@@ -240,7 +240,7 @@ export const listAssets = defineEventHandler(async (event) => {
  * DELETE /api/assets/:id — removes the upload from this user's asset library
  * index. Keyed by the row's unique id (not filename) since two uploads can
  * share the same original filename. The underlying file may still exist with
- * the storage provider (Builder.io, S3, etc.) — deleting it there requires
+ * the storage provider (Vercel Blob, S3, etc.) — deleting it there requires
  * that provider's own API — but it no longer appears in this app's library.
  */
 export const deleteAsset = defineEventHandler(async (event) => {

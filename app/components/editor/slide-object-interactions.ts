@@ -202,16 +202,16 @@ export function resolveSlideObjectContainingBlock(
   return slideLayer;
 }
 
-export function removeTransientBuilderIds(element: HTMLElement): void {
-  element.removeAttribute("data-builder-id");
-  element.querySelectorAll("[data-builder-id]").forEach((node) => {
-    node.removeAttribute("data-builder-id");
+export function removeTransientElementIds(element: HTMLElement): void {
+  element.removeAttribute("data-mk-id");
+  element.querySelectorAll("[data-mk-id]").forEach((node) => {
+    node.removeAttribute("data-mk-id");
   });
 }
 
 export function cloneSlideObject(element: HTMLElement): HTMLElement {
   const clone = element.cloneNode(true) as HTMLElement;
-  removeTransientBuilderIds(clone);
+  removeTransientElementIds(clone);
   clone.setAttribute("data-slide-object-id", createSlideObjectId());
   // Nested freeform objects are independently addressable after a clone. Each
   // one needs a new persisted identity so selector-based edits cannot resolve
@@ -236,7 +236,7 @@ export function freezeSlideElementForFreeform(
 ): HTMLElement {
   const objectId = ensureSlideObjectId(element);
   const spacer = element.cloneNode(false) as HTMLElement;
-  removeTransientBuilderIds(spacer);
+  removeTransientElementIds(spacer);
   spacer.removeAttribute("id");
   spacer.removeAttribute("data-slide-object-id");
   spacer.removeAttribute("contenteditable");

@@ -20,7 +20,7 @@ const messages = {
   },
   navigation: {
     settings: "設定",
-    brand: "幻燈片",
+    brand: "Manatki",
     decks: "幻燈片",
     designSystems: "設計系統",
     team: "團隊",
@@ -93,8 +93,8 @@ const messages = {
     googlePickerNeedsKeys:
       "Google Picker 需要 GOOGLE_PICKER_API_KEY 和 GOOGLE_PICKER_APP_ID。",
     imageUploadFailed: "圖片上傳失敗",
-    imageUploadNeedsBuilder:
-      "請從代理編寫器的模型選單連接 Builder.io，以便將圖片上傳到投影片。即使沒有提供者，將圖片拖到空白畫布上仍可傳送給代理。",
+    imageUploadNeedsStorage:
+      "Image uploads need file storage. Configure a storage provider (e.g. Vercel Blob) to upload images onto slides. Dropping an image onto the canvas can still send it to the agent without a provider.",
     sentToAgent: "已傳送給代理",
     imageUploadGenericError: "上傳這張圖片時發生問題。",
     uploading: "正在上傳…",
@@ -140,12 +140,12 @@ const messages = {
     chooseDesignSystem: "選取設計系統",
     presentationNotFound: "未找到簡報",
     sharedPresentationExpired: "這份共用簡報不存在或已過期。",
-    routeNotFoundTitle: "找不到 - Slides",
-    routeEditorTitle: "編輯器 — Slides",
-    routeDesignSystemsTitle: "設計系統 - Slides",
-    routeSettingsTitle: "設定 - Slides",
+    routeNotFoundTitle: "找不到 - Manatki",
+    routeEditorTitle: "編輯器 — Manatki",
+    routeDesignSystemsTitle: "設計系統 - Manatki",
+    routeSettingsTitle: "設定 - Manatki",
     routeSharedTitle: "共用簡報",
-    routeTeamTitle: "團隊 — Slides",
+    routeTeamTitle: "團隊 — Manatki",
     slidePreviewTitle: "幻燈片預覽",
     slideUnavailable: "無法使用幻燈片",
     couldNotLoadSlide: "無法載入幻燈片。",
@@ -504,8 +504,8 @@ const messages = {
     backToDecks: "返回幻燈片",
     tryAgain: "重試",
     imageUploadFailed: "圖片上傳失敗",
-    imageUploadNeedsBuilder:
-      "請從代理編寫器的模型選單連接 Builder.io，以便將圖片上傳到投影片。即使沒有提供者，將圖片拖到空白畫布上仍可傳送給代理。",
+    imageUploadNeedsStorage:
+      "Image uploads need file storage. Configure a storage provider (e.g. Vercel Blob) to upload images onto slides. Dropping an image onto the canvas can still send it to the agent without a provider.",
     imageAdded: "圖片已新增",
     imageUploadError: "上傳此圖片時出了點問題。",
     exportFailed: "匯出失敗",
@@ -516,11 +516,6 @@ const messages = {
     slidesAdded_other: "已新增 {{count}} 張幻燈片",
   },
   designSystemSetup: {
-    importedBrand: "匯入的品牌",
-    figFileRequired:
-      "請選取 .fig 檔案（在 Figma 中：File > Save local copy）。",
-    figFileTooLarge: "檔案太大（最大 {{maxSize}}）。",
-    figParseFailed: "無法為該 Figma 檔案啟動 Builder 索引。",
     updated: "設計系統已更新",
     updateFailed: "更新失敗",
     generationStarted: "設計系統生成已開始",
@@ -529,23 +524,12 @@ const messages = {
     newTitle: "新建設計系統",
     editDescription: "更新你的品牌識別。",
     newDescription:
-      "透過 Builder DSI 連接 Figma、程式碼和選用的 design.md 指引。",
+      "Build a design system from your website, code files, brand documents, and visual references.",
     companyBrand: "公司 / 品牌",
     companyBrandPlaceholder: "Acme Inc. — 我們建置開發者工具...",
-    figmaFile: "連接 Figma",
-    parsingFigmaFile: "正在啟動 Builder DSI 索引...",
-    uploadFigDescription: "上傳本機 .fig 副本以用於 Builder DSI",
-    builderIndexingStarted: "Builder 索引已啟動",
-    builderIndexingDescription:
-      "Builder is indexing {{title}} into a reusable design system.",
-    builderDesignSystemId: "設計系統",
-    builderJobId: "Job",
-    openInBuilder: "在 Builder 中開啟",
-    decodeFailed: "解碼失敗：{{error}}",
     websiteUrl: "網站 URL",
     websitePlaceholder: "example.com 或 Nike",
     add: "新增",
-    githubRepository: "連接程式碼：GitHub 倉庫",
     codeFiles: "連接程式碼檔案",
     codeFilesDrop: "CSS、Tailwind 設定、主題檔案、design.md — 拖放或點選",
     documents: "檔案和簡報",
@@ -566,7 +550,6 @@ const messages = {
     saveChanges: "儲存更改",
     continueToGeneration: "繼續生成",
     removeItem: "移除 {{item}}",
-    chooseAnotherFile: "選取其他檔案",
   },
   home: {
     loadFailed: "無法載入內容",

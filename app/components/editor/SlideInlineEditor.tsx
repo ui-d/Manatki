@@ -14,6 +14,8 @@ import type { Awareness } from "y-protocols/awareness";
 import type * as Y from "yjs";
 
 import type { Slide } from "@/context/DeckContext";
+import type { AspectRatio } from "@/lib/aspect-ratios";
+import { getSlideDims } from "@/lib/slide-size";
 
 import { SlideBubbleMenu } from "./SlideBubbleMenu";
 import {
@@ -49,6 +51,8 @@ interface SlideInlineEditorProps {
   agentActive?: boolean;
   /** Called when the user clicks the comment button with selected text. */
   onComment?: (quotedText: string) => void;
+  /** Deck aspect ratio fallback when the slide has no per-slide size. */
+  aspectRatio?: AspectRatio;
 }
 
 /** Resolve bg class / style from slide.background */
@@ -193,8 +197,10 @@ export function SlideInlineEditor({
   collabUser,
   agentActive,
   onComment,
+  aspectRatio,
 }: SlideInlineEditorProps) {
   const t = useT();
+  const dims = getSlideDims(slide, aspectRatio);
   const { bgClass, bgStyle } = resolveBackground(slide.background);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Guard flag: prevents the seeding setContent from triggering onContentChange
@@ -451,22 +457,25 @@ export function SlideInlineEditor({
 
   return (
     <div
-      className={`w-full aspect-video rounded-lg overflow-hidden relative shadow-2xl shadow-black/40 ring-2 ring-[#609FF8] ${bgClass}`}
-      style={bgStyle}
+      className={`w-full rounded-lg overflow-hidden relative shadow-2xl shadow-black/40 ring-2 ring-[#609FF8] ${bgClass}`}
+      style={{
+        ...bgStyle,
+        aspectRatio: `${dims.width} / ${dims.height}`,
+      }}
     >
-      {/* Scale the editor canvas to 960x540 just like SlideRenderer */}
+      {/* Scale the editor canvas to the slide's intrinsic dims just like SlideRenderer */}
       <div
         className="absolute top-0 left-0 origin-top-left"
         style={{
-          width: 960,
-          height: 540,
+          width: dims.width,
+          height: dims.height,
           transform: "scale(var(--slide-scale, 0.25))",
         }}
       >
-        <SlideEditorCanvas editor={editor} slide={slide} />
+        <SlideEditorCanvas editor={editor} slide={slide} dims={dims} />
       </div>
       {/* ScaleHelper mirrors SlideRenderer's ScaleHelper */}
-      <ScaleHelper targetWidth={960} />
+      <ScaleHelper targetWidth={dims.width} />
 
       {/* Bubble menu & slash menu live outside the scaled canvas so they render at screen scale */}
       {editor && <SlideBubbleMenu editor={editor} onComment={onComment} />}
@@ -490,13 +499,15 @@ export function SlideInlineEditor({
   );
 }
 
-/** The 960x540 TipTap editor canvas, styled like a slide */
+/** The intrinsic-resolution TipTap editor canvas, styled like a slide */
 function SlideEditorCanvas({
   editor,
   slide,
+  dims,
 }: {
   editor: ReturnType<typeof useEditor>;
   slide: Slide;
+  dims: { width: number; height: number };
 }) {
   const layoutPadding: Record<string, string> = {
     title: "px-[110px] py-[80px]", // i18n-ignore Tailwind class list
@@ -513,8 +524,12 @@ function SlideEditorCanvas({
 
   return (
     <div
-      className={`w-[960px] h-[540px] relative flex flex-col justify-center ${padding}`}
-      style={{ fontFamily: "'Poppins', sans-serif" }}
+      className={`relative flex flex-col justify-center ${padding}`}
+      style={{
+        width: dims.width,
+        height: dims.height,
+        fontFamily: "'Poppins', sans-serif",
+      }}
     >
       <EditorContent
         editor={editor}

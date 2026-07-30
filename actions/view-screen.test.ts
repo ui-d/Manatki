@@ -134,7 +134,7 @@ describe("view-screen", () => {
       items: [
         {
           selector: '[data-slide-object-id="object-1"]',
-          runtimeSelector: '[data-builder-id="b-7"]',
+          runtimeSelector: '[data-mk-id="b-7"]',
           objectId: "object-1",
           kind: "element",
           tagName: "div",
@@ -147,7 +147,7 @@ describe("view-screen", () => {
     expect(result).toContain("mode: box-selected");
     expect(result).toContain('selector=[data-slide-object-id="object-1"]');
     expect(result).toContain("objectId: object-1");
-    expect(result).toContain('runtimeSelector: [data-builder-id="b-7"]');
+    expect(result).toContain('runtimeSelector: [data-mk-id="b-7"]');
   });
 
   it("filters the list to decks created by the current user without reading deck bodies", async () => {

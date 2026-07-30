@@ -46,6 +46,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { Deck } from "@/context/DeckContext";
 import { useDecks } from "@/context/DeckContext";
+import { getPresetSize, type DeckKind } from "@/lib/slide-size";
 import { useAgentGenerating } from "@/hooks/use-agent-generating";
 import { useDesignSystems } from "@/hooks/use-design-systems";
 import { useWorkspaceDefaults } from "@/hooks/use-workspace-defaults";
@@ -225,6 +226,7 @@ export default function Index() {
     [],
   );
   const [signInPromptHadFiles, setSignInPromptHadFiles] = useState(false);
+  const [newProjectKind, setNewProjectKind] = useState<DeckKind>("deck");
   const [selectedDesignSystemId, setSelectedDesignSystemId] = useState("");
   const [selectedReferenceDeckId, setSelectedReferenceDeckId] = useState("");
   // True while the picker still reflects an auto-applied default rather than
@@ -306,6 +308,7 @@ export default function Index() {
       anchorElRef.current = e.currentTarget;
       designSystemAutoRef.current = true;
       referenceDeckAutoRef.current = true;
+      setNewProjectKind("deck");
       setSelectedDesignSystemId(initialDesignSystemId ?? "");
       setSelectedReferenceDeckId(workspaceReferenceDeckId ?? "none");
       setShowNewDeckPrompt(true);
@@ -408,6 +411,12 @@ export default function Index() {
     flushSync(() => {
       deck = createDeck(undefined, {
         designSystemId: selectedDesignSystem?.id ?? null,
+        ...(newProjectKind === "social"
+          ? {
+              kind: "social" as const,
+              defaultSize: getPresetSize("ig-square") ?? undefined,
+            }
+          : {}),
       });
     });
     if (!deck) return;
@@ -441,6 +450,12 @@ export default function Index() {
       deck = createDeck(undefined, {
         noDefaultSlides: true,
         designSystemId: selectedDesignSystem?.id ?? null,
+        ...(newProjectKind === "social"
+          ? {
+              kind: "social" as const,
+              defaultSize: getPresetSize("ig-square") ?? undefined,
+            }
+          : {}),
       });
     });
     if (!deck) return;
@@ -466,27 +481,53 @@ export default function Index() {
     navigate(`/deck/${deck.id}`, { flushSync: true });
 
     // One quick, skippable decision so the agent doesn't guess the deck size.
-    const deckLength = await askUserQuestion({
-      question: t("home.deckLengthQuestion"),
-      header: t("home.deckLengthHeader"),
-      options: [
-        { label: t("home.deckLengthShort"), value: "3–5 slides" },
-        {
-          label: t("home.deckLengthMedium"),
-          value: "6–10 slides",
-          recommended: true,
-        },
-        { label: t("home.deckLengthLong"), value: "11+ slides" },
-        {
-          label: t("home.deckLengthSingleVisual"),
-          value: "a single standalone visual slide",
-        },
-      ],
-      allowFreeText: false,
-    });
+    // Social projects ask about formats instead of slide count.
+    const isSocialProject = newProjectKind === "social";
+    const deckLength = isSocialProject
+      ? await askUserQuestion({
+          question: t("home.socialFormatsQuestion"),
+          header: t("home.socialFormatsHeader"),
+          options: [
+            {
+              label: t("home.socialFormatsSquare"),
+              value: "one Instagram square post (ig-square)",
+            },
+            {
+              label: t("home.socialFormatsCampaign"),
+              value:
+                "a campaign set: square post (ig-square), story (ig-story), and link banner (og-banner)",
+              recommended: true,
+            },
+            {
+              label: t("home.socialFormatsStory"),
+              value: "one vertical story / Reel cover (ig-story)",
+            },
+          ],
+          allowFreeText: false,
+        })
+      : await askUserQuestion({
+          question: t("home.deckLengthQuestion"),
+          header: t("home.deckLengthHeader"),
+          options: [
+            { label: t("home.deckLengthShort"), value: "3–5 slides" },
+            {
+              label: t("home.deckLengthMedium"),
+              value: "6–10 slides",
+              recommended: true,
+            },
+            { label: t("home.deckLengthLong"), value: "11+ slides" },
+            {
+              label: t("home.deckLengthSingleVisual"),
+              value: "a single standalone visual slide",
+            },
+          ],
+          allowFreeText: false,
+        });
     const deckLengthContext =
       typeof deckLength === "string" && deckLength
-        ? `Target length: aim for ${deckLength} unless the user's request clearly specifies a different count.`
+        ? isSocialProject
+          ? `Target formats: create ${deckLength} unless the user's request clearly specifies different formats.`
+          : `Target length: aim for ${deckLength} unless the user's request clearly specifies a different count.`
         : "";
 
     const trimmedPrompt = prompt.trim();
@@ -532,8 +573,22 @@ export default function Index() {
           "- None selected. Do not apply a design system unless the user asks for one.",
         ].join("\n");
 
+    const socialContext = isSocialProject
+      ? [
+          "",
+          "PROJECT KIND: social — this is a social-media / marketing asset project, NOT a presentation.",
+          "The project was created with kind: \"social\" and a default canvas of 1080x1080 (ig-square).",
+          "Each asset is one slide with its OWN canvas size. Pass `sizePreset` on every `add-slide` call (ig-square, ig-portrait, ig-story, og-banner, x-post, linkedin-banner) or explicit `width`+`height` pixels for custom banners.",
+          "Follow the `create-social-assets` skill for per-format HTML templates and type scale — social canvases are ~2x larger than deck canvases, so fonts must scale up accordingly.",
+          "Do not add presenter-style title/agenda/closing slides. Every asset must stand alone.",
+        ].join("\n")
+      : "";
+
     const context = [
-      `The user just created a new empty deck (id: "${deck.id}") and wants to create a presentation or standalone visual.`,
+      isSocialProject
+        ? `The user just created a new empty social-asset project (id: "${deck.id}") and wants marketing assets (social posts, stories, banners).`
+        : `The user just created a new empty deck (id: "${deck.id}") and wants to create a presentation or standalone visual.`,
+      socialContext,
       "The visible user message above contains the user's request and/or pasted source material for the deck. Treat pasted memo content as source material even if the user did not explicitly say they are pasting it.",
       googleDocContext,
       fileContext,
@@ -892,6 +947,26 @@ export default function Index() {
         initialText={newDeckInitialPrompt?.text}
         initialTextKey={newDeckInitialPrompt?.key}
       >
+        <div className="flex items-center gap-1 border-t border-border px-3.5 py-2">
+          {(["deck", "social"] as const).map((kindOption) => (
+            <button
+              key={kindOption}
+              type="button"
+              onClick={() => setNewProjectKind(kindOption)}
+              aria-pressed={newProjectKind === kindOption}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-[11px] font-medium border transition-colors",
+                newProjectKind === kindOption
+                  ? "bg-[#609FF8]/15 text-[#609FF8] border-[#609FF8]/30"
+                  : "text-muted-foreground border-transparent hover:bg-accent/50",
+              )}
+            >
+              {kindOption === "deck"
+                ? t("home.projectTypeDeck")
+                : t("home.projectTypeSocial")}
+            </button>
+          ))}
+        </div>
         {(designSystems.length > 0 || decks.length > 0) && (
           <div
             className={cn(

@@ -7,6 +7,10 @@ description: How to create a new deck with slides from scratch. Read this before
 
 **Do not explore the codebase.** Everything you need is here.
 
+For social-media or marketing assets (Instagram posts, stories, banners,
+mixed-size campaigns), read `create-social-assets` instead — those are
+`kind: "social"` projects with per-asset canvas sizes, not presentations.
+
 ## Workflow
 
 1. Read the `creative-context` skill and retrieve factual evidence separately

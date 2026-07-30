@@ -1,21 +1,23 @@
-# Slideshow
+# Manatki
 
 **Live app: [slideshow-app-uids-projects-f4e05740.vercel.app](https://slideshow-app-uids-projects-f4e05740.vercel.app)**
 
-An open-source, agent-native presentation app. Generate decks from a prompt with
-your own OpenAI API key, edit slides visually or from chat, drop in a folder of
-images as a ready-to-present deck, and present with a distinctive two-pane
-presenter stage.
+An open-source, agent-native studio for presentations and marketing assets.
+Generate decks or social campaigns from a prompt with your own OpenAI API key,
+edit every slide or asset visually or from chat, drop in a folder of images as
+a ready-to-present deck, and present with a distinctive two-pane presenter
+stage.
 
-Built on [agent-native](https://github.com/BuilderIO/agent-native) and its
-slides template — everything you can do in the editor, the agent can do from
-chat too: "add a slide about pricing", "reorder slides", "attach these
-screenshots to slide 3", "switch the preview style to card".
+Everything you can do in the editor, the agent can do from chat too: "add a
+slide about pricing", "make a campaign set for the spring launch", "attach
+these screenshots to slide 3", "switch the preview style to card".
 
 ## Features
 
-- **Agentic editing** — a chat agent with full access to the deck: create,
-  edit, reorder, theme, and illustrate slides from natural language.
+- **Agentic editing** — a chat agent with full access to the project: create,
+  edit, reorder, theme, and illustrate slides and assets from natural language.
+- **Social asset projects** — mixed-size marketing assets (Instagram posts,
+  stories, banners) with per-asset canvases and PNG/ZIP export.
 - **Bring your own key** — add your OpenAI API key in Settings; it is stored
   encrypted per user and used for slide and image generation. The hosted
   version needs no server-side AI keys.

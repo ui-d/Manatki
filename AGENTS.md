@@ -1,8 +1,17 @@
-# Slides — Agent Guide
+# Manatki — Agent Guide
 
-Slides is an agent-native deck editor. The agent creates, edits, imports,
+Manatki is an agent-native studio for presentations and marketing assets. The
+agent creates, edits, imports,
 exports, styles, shares, and navigates decks through actions and shared SQL
 state.
+
+Projects come in two kinds. A classic deck (`kind: "deck"`, the default) is a
+presentation: uniform canvas, presenter flow, PPTX export. A social project
+(`kind: "social"`) is a set of marketing assets (Instagram posts, stories,
+banners) where every slide has its own pixel canvas (`slide.size`, set via
+`sizePreset` or `width`/`height` on `add-slide`/`update-slide`) and export is
+PNG per asset. Route social/marketing-asset requests through the
+`create-social-assets` skill; presentations stay on `create-deck`.
 
 Detailed deck, slide-editing, image, design-system, and export workflows live in
 `.agents/skills/`.
@@ -18,7 +27,7 @@ ladder.
   base64, `data:` URLs, images, video/audio, PDFs, ZIPs, screenshots,
   thumbnails, or replay chunks in app tables, `application_state`, `settings`,
   or `resources`; persist URLs, ids, or handles instead.
-- Never hardcode API keys, tokens, webhook URLs, signing secrets, private Builder/internal data, customer data, or credential-looking literals. Use secrets/OAuth/runtime configuration and obvious placeholders in examples.
+- Never hardcode API keys, tokens, webhook URLs, signing secrets, private/internal data, customer data, or credential-looking literals. Use secrets/OAuth/runtime configuration and obvious placeholders in examples.
 - Use actions for deck lifecycle, slide edits, imports, exports, images, design
   systems, and sharing. Do not write deck/slide rows directly.
 - In dev, call actions with `pnpm action <name>`; in production, use native
@@ -31,9 +40,9 @@ ladder.
   absolutely positioned `.fmd-slide` children; keep generated flex/grid in
   normal flow and mint ids only for duplicates. Use styled HTML, not inline SVG.
 - Follow linked design-system tokens and custom instructions.
-- Build reusable design systems from Figma, code, GitHub, or `design.md` via
-  Builder-backed DSI indexing, never a duplicate local copy. Read
-  `design-systems` for the per-source actions.
+- Build reusable design systems from websites, code files, brand documents, or
+  `design.md` via `analyze-brand-assets` / `create-design-system`. Read
+  `design-systems` for the per-source workflow.
 - Import/export actions are shortcuts, not capability limits. For exact Google
   Drive API needs, use `provider-api-catalog`, `provider-api-docs`, and
   `provider-api-request`; auth comes from the user's Google Docs OAuth. Stage
@@ -98,6 +107,8 @@ extending the editor's save path, enqueue a granular op (`patch-slide`,
 Read the relevant skill before deeper work:
 
 - `create-deck` for new decks, reference decks, workspace defaults, outlines.
+- `create-social-assets` for social projects: size presets, per-format HTML
+  templates, story safe areas, campaigns, format adaptation.
 - `slide-editing` for targeted slide changes.
 - `deck-management` for organization, sharing, import/export, and metadata.
 - `presenter` for the two-pane presenter stage: preview variants

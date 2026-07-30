@@ -20,7 +20,14 @@ import { notifyClients } from "../server/handlers/decks.js";
 import { createDeckVersionSnapshot } from "../server/lib/deck-versions.js";
 import { resolveDefaultDesignSystemId } from "../server/workspace-defaults.js";
 import { ASPECT_RATIO_VALUES } from "../shared/aspect-ratios.js";
+import {
+  DECK_KIND_VALUES,
+  MAX_SLIDE_DIM,
+  MIN_SLIDE_DIM,
+  SIZE_PRESET_VALUES,
+} from "../shared/slide-size.js";
 import { getDeckUrl } from "./_app-url.js";
+import { SlideSizeSchema, resolveRequestedSlideSize } from "./_deck-write.js";
 
 const ReuseLabelSchema = z
   .object({
@@ -67,6 +74,9 @@ const SlideSchema = z.object({
     .optional()
     .describe("Layout type hint"),
   notes: z.string().optional().describe("Speaker notes for this slide"),
+  size: SlideSizeSchema.optional().describe(
+    "Per-slide canvas size in pixels (social projects); omit for the deck default",
+  ),
   creativeContextReuseLabels: z
     .array(ReuseLabelSchema)
     .optional()
@@ -111,6 +121,32 @@ export default defineAction({
       .describe(
         "Slide aspect ratio for the deck (defaults to 16:9 when omitted)",
       ),
+    kind: z
+      .enum(DECK_KIND_VALUES)
+      .optional()
+      .describe(
+        "Project kind: 'deck' (default, presenter + PPTX) or 'social' (mixed-size marketing assets, PNG export)",
+      ),
+    sizePreset: z
+      .enum(SIZE_PRESET_VALUES)
+      .optional()
+      .describe(
+        "Default canvas for new slides in a social project (e.g. ig-square). Wins over width/height.",
+      ),
+    width: z
+      .number()
+      .int()
+      .min(MIN_SLIDE_DIM)
+      .max(MAX_SLIDE_DIM)
+      .optional()
+      .describe("Custom default canvas width in pixels (requires height)"),
+    height: z
+      .number()
+      .int()
+      .min(MIN_SLIDE_DIM)
+      .max(MAX_SLIDE_DIM)
+      .optional()
+      .describe("Custom default canvas height in pixels (requires width)"),
     designSystemId: z
       .string()
       .optional()
@@ -147,6 +183,10 @@ export default defineAction({
     slides: rawSlides,
     deckId,
     aspectRatio,
+    kind,
+    sizePreset,
+    width,
+    height,
     designSystemId,
     contextPackId,
     contextModeOverride,
@@ -154,6 +194,7 @@ export default defineAction({
   }) => {
     const db = getDb();
     const now = new Date().toISOString();
+    const defaultSize = resolveRequestedSlideSize({ sizePreset, width, height });
     const validatedCreativeContext = await validateGenerationCreativeContext({
       contextPackId,
       contextModeOverride,
@@ -215,6 +256,11 @@ export default defineAction({
     const slides = rawSlides.map((s) => ({
       ...s,
       content: normalizeSlidePadding(s.content),
+      // Social projects materialize the project default onto each slide so
+      // rendering never needs to consult deck-level state for a canvas.
+      ...(s.size === undefined && kind === "social" && defaultSize
+        ? { size: defaultSize }
+        : {}),
     }));
 
     if (deckId) {
@@ -246,6 +292,8 @@ export default defineAction({
         slides,
         updatedAt: now,
         aspectRatio: aspectRatio ?? prevData.aspectRatio,
+        kind: kind ?? prevData.kind,
+        defaultSize: defaultSize ?? prevData.defaultSize,
         designSystemId: designSystemId ?? prevData.designSystemId,
         creativeContext: creativeContextProvenance,
       };
@@ -299,6 +347,8 @@ export default defineAction({
       updatedAt: now,
     };
     if (aspectRatio) data.aspectRatio = aspectRatio;
+    if (kind) data.kind = kind;
+    if (defaultSize) data.defaultSize = defaultSize;
     if (resolvedDesignSystemId) data.designSystemId = resolvedDesignSystemId;
     data.creativeContext = creativeContextProvenance;
     await db.insert(schema.decks).values({

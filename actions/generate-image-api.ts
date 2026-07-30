@@ -28,14 +28,14 @@ async function urlToReferenceImage(
 
 export default defineAction({
   description:
-    "Generate an image via a connected Builder.io account, or Gemini/OpenAI, with optional reference images for style matching.",
+    "Generate an image via Gemini or OpenAI, with optional reference images for style matching.",
   schema: z.object({
     prompt: z.string().optional().describe("Image description (required)"),
     model: z
       .string()
       .optional()
       .describe(
-        "Provider: 'builder', 'gemini', 'openai', or 'auto' (default: auto, which prefers a connected Builder.io account, then gemini, then openai)",
+        "Provider: 'gemini', 'openai', or 'auto' (default: auto, which prefers gemini, then openai)",
       ),
   }),
   run: async (args) => {
@@ -72,7 +72,7 @@ export default defineAction({
     });
     if (!uploaded?.url) {
       throw new Error(
-        "File storage is not configured. Connect Builder.io or another upload provider before generating slide images.",
+        "File storage is not configured. Set up an upload provider (e.g. Vercel Blob via BLOB_READ_WRITE_TOKEN) before generating slide images.",
       );
     }
 

@@ -1,6 +1,6 @@
 {
-  "name": "slideshow-app",
-  "displayName": "Slideshow App",
+  "name": "manatki",
+  "displayName": "Manatki",
   "private": true,
   "type": "module",
   "scripts": {
@@ -146,7 +146,7 @@
       "dist/server/**/*.js"
     ]
   },
-  "description": "Workspace app for Slideshow App.",
+  "description": "Workspace app for Manatki.",
   "agent-native": {
     "scaffold": {
       "template": "slides",

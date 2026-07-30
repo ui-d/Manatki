@@ -1,9 +1,9 @@
 import Index from "@/pages/Index";
 
 const SEO_TITLE =
-  "Slides - Open Source AI presentation builder and Google Slides alternative";
+  "Manatki - Open Source AI studio for presentations and marketing assets";
 const SEO_DESCRIPTION =
-  "Open Source AI presentation builder for generating, editing, refining, and exporting React decks as Google Slides-ready presentations.";
+  "Open Source AI studio for generating, editing, and exporting presentations, social graphics, and marketing assets — on brand, in every format.";
 
 export function meta() {
   return [

@@ -11,6 +11,15 @@ its aspect ratio: 16:9 is 960x540, 1:1 is 1080x1080, 9:16 is 540x960, and 4:5
 is 864x1080. These canonical dimensions come from the shared aspect-ratio
 registry; do not assume a fixed 1920x1080 canvas.
 
+A slide may also carry its own `size` (`{ width, height, preset? }` pixels),
+which overrides the deck-level aspect ratio — this is how social projects
+(`deck.kind: "social"`) give every asset its own canvas. Resolution order:
+`slide.size` → deck `aspectRatio` → 960x540. Resize via
+`update-slide --sizePreset <preset>` or `--width`/`--height`; the layout fit
+check always measures against the slide's OWN resolved canvas, so after a
+resize expect a fresh overflow report and rewrite the HTML for the new
+geometry (see `create-social-assets` for per-format templates).
+
 ## Slide HTML Structure
 
 Every slide uses this wrapper:
@@ -78,7 +87,7 @@ children of `.fmd-slide`. Give each one a stable `data-slide-object-id`:
 - Preserve `data-slide-object-id` when updating, moving, resizing, or styling an
   existing object.
 - Mint a new unique object ID when duplicating an object.
-- Do not use runtime-only `data-builder-id` values in saved slide HTML.
+- Do not use runtime-only `data-mk-id` values in saved slide HTML.
 - Keep generated flex and grid content in normal flow. Do not silently
   absolute-position a nested layout child just to make it draggable; create a
   deliberate freeform object instead.

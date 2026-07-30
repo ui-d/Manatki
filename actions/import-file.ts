@@ -3,11 +3,7 @@ import path from "path";
 import { defineAction } from "@agent-native/core";
 import { writeAppState } from "@agent-native/core/application-state";
 import { uploadFile } from "@agent-native/core/file-upload";
-import { startBuilderDesignSystemIndex } from "@agent-native/core/server";
-import {
-  getRequestOrgId,
-  getRequestUserEmail,
-} from "@agent-native/core/server/request-context";
+import { getRequestUserEmail } from "@agent-native/core/server/request-context";
 import { assertAccess } from "@agent-native/core/sharing";
 import { eq } from "drizzle-orm";
 import pLimit from "p-limit";
@@ -15,7 +11,6 @@ import { z } from "zod";
 
 import { getDb, schema } from "../server/db/index.js";
 import { notifyClients } from "../server/handlers/decks.js";
-import { upsertBuilderProxyDesignSystem } from "../server/lib/builder-design-system-proxy.js";
 import { setupPdfParse } from "../server/lib/pdf-parse-setup.js";
 import {
   ASPECT_RATIOS,
@@ -29,18 +24,17 @@ const DEFAULT_MAX_SOURCE_CHARS = 60_000;
 
 export default defineAction({
   description:
-    "Import a file (PPTX, DOCX, PDF, FIG) and extract content for creating slides or slide design systems. " +
+    "Import a file (PPTX, DOCX, PDF) and extract content for creating slides or slide design systems. " +
     "For PPTX files, returns parsed slides with text and layout info ready for conversion. " +
     "For DOCX files, returns structured sections extracted from the document. " +
     "For PDF files, returns extracted text organized by page. " +
-    "For Figma .fig files, requires Builder.io and starts Builder design-system indexing; the returned Builder job/design-system ids are the source of truth. " +
-    "The agent can then use the extracted content to create a deck via create-deck or add-slide, or tell the user where Builder is indexing the design system.",
+    "The agent can then use the extracted content to create a deck via create-deck or add-slide.",
   schema: z.object({
     filePath: z
       .string()
       .describe("Uploaded file path or opaque hosted upload reference"),
     format: z
-      .enum(["pptx", "docx", "pdf", "fig", "auto"])
+      .enum(["pptx", "docx", "pdf", "auto"])
       .optional()
       .default("auto")
       .describe("File format — auto-detected from extension if not specified"),
@@ -78,52 +72,15 @@ export default defineAction({
       if (ext === ".pptx") detectedFormat = "pptx";
       else if (ext === ".docx") detectedFormat = "docx";
       else if (ext === ".pdf") detectedFormat = "pdf";
-      else if (ext === ".fig") detectedFormat = "fig";
-      else {
+      else if (ext === ".fig") {
         throw new Error(
-          `Cannot detect format from extension "${ext}". Supported: .pptx, .docx, .pdf, .fig`,
+          "Figma .fig import is not supported. Export brand pages as images or paste token values, then build the design system from those sources (see the design-systems skill).",
+        );
+      } else {
+        throw new Error(
+          `Cannot detect format from extension "${ext}". Supported: .pptx, .docx, .pdf`,
         );
       }
-    }
-
-    if (detectedFormat === "fig") {
-      if (importIntoDeck) {
-        throw new Error(
-          "Figma .fig imports start Builder design-system indexing, not slide replacements. Re-run without importIntoDeck.",
-        );
-      }
-      const title = titleFromPath(filename);
-      const result = await startBuilderDesignSystemIndex({
-        projectName: title,
-        files: [
-          {
-            name: path.basename(filename),
-            data: fileBuffer,
-            mimeType: "application/octet-stream",
-          },
-        ],
-      });
-      const ownerEmail = getRequestUserEmail();
-      if (!ownerEmail) throw new Error("no authenticated user");
-      const proxy = await upsertBuilderProxyDesignSystem({
-        result,
-        ownerEmail,
-        orgId: getRequestOrgId(),
-        projectName: title,
-      });
-      return {
-        format: "fig",
-        title,
-        source: "builder",
-        projectId: result.projectId,
-        jobId: result.jobId,
-        designSystemId: result.designSystemId,
-        localDesignSystemId: proxy.localDesignSystemId,
-        builderUrl: result.builderUrl,
-        status: result.status,
-        deckId,
-        instructions: proxy.instructions,
-      };
     }
 
     if (detectedFormat === "pptx") {
@@ -416,7 +373,7 @@ async function importPdfPagesAsFullBleedSlides(args: {
       });
       if (!uploadResult?.url) {
         throw new Error(
-          "File storage is not configured. Connect Builder.io or another upload provider before importing PDF slides.",
+          "File storage is not configured. Set up an upload provider (e.g. Vercel Blob via BLOB_READ_WRITE_TOKEN) before importing PDF slides.",
         );
       }
       // pdf-parse breaks wrapped text across lines with no way to tell a

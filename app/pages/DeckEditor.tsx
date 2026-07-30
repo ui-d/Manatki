@@ -65,7 +65,9 @@ import type { AspectRatio } from "@/lib/aspect-ratios";
 import { getPreset } from "@/lib/design-systems";
 import { exportDeckToGoogleSlides } from "@/lib/export-google-slides-client";
 import { exportDeckAsPdf } from "@/lib/export-pdf-client";
+import { exportSlideAsPng, exportSlidesAsZip } from "@/lib/export-png-client";
 import { exportDeckAsPptx } from "@/lib/export-pptx-client";
+import { getSlideDims, isUniformSize } from "@/lib/slide-size";
 import {
   shouldClearNewDeckGeneratingState,
   shouldShowNewDeckGeneratingOverlay,
@@ -386,7 +388,7 @@ export default function DeckEditor() {
         const serverError =
           typeof data?.error === "string" ? data.error : undefined;
         if (isMissingUploadProviderError(res.status, serverError)) {
-          throw new Error(t("deckEditor.imageUploadNeedsBuilder"));
+          throw new Error(t("deckEditor.imageUploadNeedsStorage"));
         }
         throw new Error(serverError || t("deckEditor.imageUploadFailed"));
       }
@@ -633,7 +635,7 @@ export default function DeckEditor() {
       // the user is trying to comment on.
       if (document.querySelector("[data-pin-popover]")) return;
       // Skip if the SlideEditor reports an element is selected (image, text
-      // block, or builder-id selector). Slide-level delete is reserved for
+      // block, or mk-id selector). Slide-level delete is reserved for
       // when the canvas itself has focus.
       if (document.querySelector("[data-slide-element-selected='true']"))
         return;
@@ -966,6 +968,9 @@ export default function DeckEditor() {
           if (slides.length === 0) {
             throw new Error(t("deckEditor.deckHasNoSlides"));
           }
+          if (!isUniformSize(deck.slides, deck.aspectRatio)) {
+            throw new Error(t("deckEditor.mixedSizesExport"));
+          }
           await exportDeckAsPptx(deck.title, slides, deck.aspectRatio);
         }}
         onExportGoogleSlides={async () => {
@@ -976,9 +981,44 @@ export default function DeckEditor() {
           if (slides.length === 0) {
             throw new Error(t("deckEditor.deckHasNoSlides"));
           }
+          if (!isUniformSize(deck.slides, deck.aspectRatio)) {
+            throw new Error(t("deckEditor.mixedSizesExport"));
+          }
           return exportDeckToGoogleSlides(deck.title, slides, deck.aspectRatio);
         }}
         aspectRatio={deck.aspectRatio}
+        deckKind={deck.kind}
+        onSetSlideSize={(size) =>
+          currentSlide && updateSlide(id, currentSlide.id, { size })
+        }
+        onExportPngCurrent={async () => {
+          if (!currentSlide) return;
+          const index = deck.slides.findIndex(
+            (s) => s.id === currentSlide.id,
+          );
+          const dims = getSlideDims(currentSlide, deck.aspectRatio);
+          await exportSlideAsPng(
+            deck.title,
+            { id: currentSlide.id, ...dims },
+            Math.max(index, 0),
+            deck.slides.length,
+          );
+        }}
+        onExportPngZip={async () => {
+          if (deck.slides.length === 0) {
+            toast.error(t("deckEditor.exportFailed"), {
+              description: t("deckEditor.deckHasNoSlides"),
+            });
+            return;
+          }
+          await exportSlidesAsZip(
+            deck.title,
+            deck.slides.map((s) => ({
+              id: s.id,
+              ...getSlideDims(s, deck.aspectRatio),
+            })),
+          );
+        }}
         onSetAspectRatio={(ratio: AspectRatio) => {
           const previous = deck.aspectRatio;
           // Optimistic UI: update local cache immediately so canvas resizes.

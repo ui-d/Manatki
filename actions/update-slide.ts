@@ -16,11 +16,13 @@ import { normalizeSlidePadding } from "../app/lib/normalize-slide-padding.js";
 import { getDb, schema } from "../server/db/index.js"; // ensure registerShareableResource runs
 import { notifyClients } from "../server/handlers/decks.js";
 import { createDeckVersionSnapshot } from "../server/lib/deck-versions.js";
+import { MAX_SLIDE_DIM, MIN_SLIDE_DIM, SIZE_PRESET_VALUES } from "../shared/slide-size.js";
 import { slideLabelFor, touchAgentSlidePresence } from "./_agent-presence.js";
 import {
   awaitLayoutFitCheck,
   formatOverflowForTool,
 } from "./_await-fit-check.js";
+import { resolveRequestedSlideSize } from "./_deck-write.js";
 import { withDeckLock } from "./patch-deck.js";
 
 function deckDeepLink(deckId: string): string {
@@ -88,7 +90,9 @@ function storedCreativeContext(value: unknown): {
 export default defineAction({
   description:
     "Surgically edit a slide's content using search-replace or full replacement. " +
-    "Syncs live to open editors. Prefer this over full deck rewrites.",
+    "Syncs live to open editors. Prefer this over full deck rewrites. " +
+    "Can also resize a slide's canvas via sizePreset or width+height (social projects) — " +
+    "after a resize the fit check measures against the NEW canvas, so pair it with rewritten HTML when the geometry changes a lot.",
   schema: z.object({
     deckId: z.string().describe("Deck ID"),
     slideId: z.string().describe("Slide ID"),
@@ -104,6 +108,26 @@ export default defineAction({
       .string()
       .optional()
       .describe("Full HTML to replace entire slide content"),
+    sizePreset: z
+      .enum(SIZE_PRESET_VALUES)
+      .optional()
+      .describe(
+        "Resize this slide's canvas to a named size (social projects). Wins over width/height.",
+      ),
+    width: z
+      .number()
+      .int()
+      .min(MIN_SLIDE_DIM)
+      .max(MAX_SLIDE_DIM)
+      .optional()
+      .describe("Custom canvas width in pixels (requires height)"),
+    height: z
+      .number()
+      .int()
+      .min(MIN_SLIDE_DIM)
+      .max(MAX_SLIDE_DIM)
+      .optional()
+      .describe("Custom canvas height in pixels (requires width)"),
     contextPackId: z
       .string()
       .optional()
@@ -130,12 +154,22 @@ export default defineAction({
       find,
       replace,
       fullContent,
+      sizePreset,
+      width,
+      height,
       contextPackId,
       contextModeOverride,
       reuseLabels,
     } = args;
-    if (!find && !fullContent) {
-      throw new Error("Either --find or --fullContent is required");
+    const requestedSize = resolveRequestedSlideSize({
+      sizePreset,
+      width,
+      height,
+    });
+    if (!find && !fullContent && !requestedSize) {
+      throw new Error(
+        "Either --find, --fullContent, or a size (sizePreset / width+height) is required",
+      );
     }
     const fitSince = Date.now();
 
@@ -219,6 +253,13 @@ export default defineAction({
             slide.content.slice(idx + find.length);
           applied = true;
         }
+      }
+
+      // Canvas resize — skipped when a find edit failed so a not-found result
+      // never half-applies.
+      if (requestedSize && !notFound) {
+        slide.size = requestedSize;
+        applied = true;
       }
 
       // ─── Persist to SQL ───────────────────────────────────────────────────

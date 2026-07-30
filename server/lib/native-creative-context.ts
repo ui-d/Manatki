@@ -192,7 +192,7 @@ export const nativeDeckCreativeContextAdapter: NativeResourceCaptureAdapter = {
     return {
       artifactKey: `slides:deck:${deck.id}`,
       source: {
-        name: "Slides",
+        name: "Manatki",
         kind: "native-app",
         externalRef: deck.id,
         access: {

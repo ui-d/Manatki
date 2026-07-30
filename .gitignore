@@ -50,3 +50,4 @@ data/pglite/
 data/uploads-public/
 .vercel
 .env*
+.playwright-mcp/

@@ -202,13 +202,13 @@ export function CanvasCommentPins({
       const xPct = ((e.clientX - rect.left) / rect.width) * 100;
       const yPct = ((e.clientY - rect.top) / rect.height) * 100;
 
-      // Build a best-effort selector for the target element (data-builder-id
+      // Build a best-effort selector for the target element (data-mk-id
       // is stamped by SlideEditor for slides, similar markers exist in design)
       let targetSelector: string | undefined;
-      const builderId = target
-        .closest("[data-builder-id]")
-        ?.getAttribute("data-builder-id");
-      if (builderId) targetSelector = `[data-builder-id="${builderId}"]`;
+      const mkId = target
+        .closest("[data-mk-id]")
+        ?.getAttribute("data-mk-id");
+      if (mkId) targetSelector = `[data-mk-id="${mkId}"]`;
 
       const targetText = target.textContent?.trim().slice(0, 80) || undefined;
 
@@ -269,8 +269,8 @@ export function CanvasCommentPins({
     lines.push(text);
     try {
       // Use `sendToAgentChat` (not the shared `agentChat.submit`) so the
-      // request routes correctly when slides is embedded in Builder/Frame
-      // (the Builder parent ignores `agentNative.submitChat` — the wrapped
+      // request routes correctly when the app is embedded in a host frame
+      // (the host parent ignores `agentNative.submitChat` — the wrapped
       // helper falls back to posting to self in that case) and so the agent
       // sidebar is reliably opened via the `agent-panel:open` custom event
       // even if the user has it collapsed.

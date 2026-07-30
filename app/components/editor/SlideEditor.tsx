@@ -56,7 +56,8 @@ import {
   MultiSelectChip,
 } from "@/components/visual-editor";
 import type { Slide } from "@/context/DeckContext";
-import { getAspectRatioDims, type AspectRatio } from "@/lib/aspect-ratios";
+import { type AspectRatio } from "@/lib/aspect-ratios";
+import { getSlideDims } from "@/lib/slide-size";
 import {
   computeCanvasFitZoom,
   MAX_CANVAS_ZOOM,
@@ -110,7 +111,7 @@ import {
 } from "./SlideStyleInspector";
 import { SpeakerNotesPanel } from "./SpeakerNotesPanel";
 
-let builderIdCounter = 0;
+let elementIdCounter = 0;
 const CANVAS_ZOOM_PRESETS = [10, 25, 50, 75, 100, 125, 150, 200] as const;
 // Keep the text itself a normal click-to-edit surface. Only the slim perimeter
 // is reserved for object movement, matching the familiar Slides interaction.
@@ -144,27 +145,27 @@ function isWithinElementEdgeMoveBand(
   );
 }
 
-function ensureBuilderId(element: HTMLElement): string {
-  const existing = element.getAttribute("data-builder-id");
+function ensureElementId(element: HTMLElement): string {
+  const existing = element.getAttribute("data-mk-id");
   if (existing) return existing;
-  const id = `b-${++builderIdCounter}`;
-  element.setAttribute("data-builder-id", id);
+  const id = `b-${++elementIdCounter}`;
+  element.setAttribute("data-mk-id", id);
   return id;
 }
 
-/** Stamp all elements inside a container with unique data-builder-id attributes */
-function stampBuilderIds(container: HTMLElement) {
+/** Stamp all elements inside a container with unique data-mk-id attributes */
+function stampElementIds(container: HTMLElement) {
   const elements = container.querySelectorAll("*");
   elements.forEach((el) => {
     if ((el as HTMLElement).classList.contains("fmd-layout-spacer")) return;
-    ensureBuilderId(el as HTMLElement);
+    ensureElementId(el as HTMLElement);
   });
 }
 
-/** Get the unique selector for an element using its data-builder-id */
-function getBuilderSelector(el: HTMLElement): string | null {
-  const id = el.getAttribute("data-builder-id");
-  if (id) return `[data-builder-id="${id}"]`;
+/** Get the unique selector for an element using its data-mk-id */
+function getElementSelector(el: HTMLElement): string | null {
+  const id = el.getAttribute("data-mk-id");
+  if (id) return `[data-mk-id="${id}"]`;
   return null;
 }
 
@@ -271,7 +272,7 @@ function findSmartBlock(
 }
 
 /** Strip renderer/editor-only attributes from an HTML string before saving */
-function stripBuilderIds(html: string): string {
+function stripElementIds(html: string): string {
   let cleaned = html;
   if (typeof DOMParser !== "undefined") {
     const doc = new DOMParser().parseFromString(
@@ -293,7 +294,7 @@ function stripBuilderIds(html: string): string {
     cleaned = stripRoot?.innerHTML ?? doc.body.innerHTML;
   }
 
-  return cleaned.replace(/\s*data-builder-id="[^"]*"/g, "");
+  return cleaned.replace(/\s*data-mk-id="[^"]*"/g, "");
 }
 
 /**
@@ -1122,7 +1123,7 @@ export default function SlideEditor({
   );
 
   // --- Multi-select state ---
-  /** Set of data-builder-id values currently in the multi-select */
+  /** Set of data-mk-id values currently in the multi-select */
   const [multiSelection, setMultiSelection] = useState<Set<string>>(
     () => new Set(),
   );
@@ -1158,7 +1159,7 @@ export default function SlideEditor({
     null,
   );
   const [isAskingAgentToFix, setIsAskingAgentToFix] = useState(false);
-  const dims = getAspectRatioDims(aspectRatio);
+  const dims = getSlideDims(slide, aspectRatio);
   const [fitCanvasZoom, setFitCanvasZoom] = useState(100);
   const userSetCanvasZoomRef = useRef(false);
   const canvasWidth = Math.round(dims.width * (canvasZoom / 100));
@@ -1331,7 +1332,7 @@ export default function SlideEditor({
         ``,
         `Slide id: \`${slide.id}\``,
         slideHeading ? `Slide heading: "${slideHeading}"` : null,
-        `Canvas size: ${dimsW}x${dimsH}px (16:9 native render).`,
+        `Canvas size: ${dimsW}x${dimsH}px (native render).`,
         `Available content area inside the slide's padding: ${overflowInfo.viewportHeight}px tall.`,
         `Natural rendered content height: ${overflowInfo.contentHeight}px → overflows by ${overflowInfo.verticalOverflow}px.`,
         ``,
@@ -1386,7 +1387,7 @@ export default function SlideEditor({
     const slideContent = containerRef.current?.querySelector(
       ".slide-content",
     ) as HTMLElement | null;
-    return slideContent ? stripBuilderIds(slideContent.innerHTML) : null;
+    return slideContent ? stripElementIds(slideContent.innerHTML) : null;
   }, []);
 
   const captureInlineEditDraft = useCallback(
@@ -1553,7 +1554,7 @@ export default function SlideEditor({
     el.removeAttribute("data-editing-block");
 
     const selected = freezeElementForFreeformSelection(el);
-    const selector = getBuilderSelector(selected);
+    const selector = getElementSelector(selected);
 
     const html = readCurrentSlideContentHtml();
     if (html !== null) {
@@ -1577,7 +1578,7 @@ export default function SlideEditor({
   /** Enter edit mode on a smart block (text leaf or smart group) */
   const enterInlineEdit = useCallback(
     (el: HTMLElement) => {
-      const selector = getBuilderSelector(el);
+      const selector = getElementSelector(el);
       el.contentEditable = "true";
       el.setAttribute("data-editing-block", "true");
       // Keep the inspector selection mounted while text is being edited. The
@@ -1667,7 +1668,7 @@ export default function SlideEditor({
         editingEl,
         selection,
       );
-      const selector = selectedElementSelector ?? getBuilderSelector(editingEl);
+      const selector = selectedElementSelector ?? getElementSelector(editingEl);
       if (!selector) return;
       setSelectedStyleSnapshot(
         buildStyleSnapshot(
@@ -1884,7 +1885,7 @@ export default function SlideEditor({
     setImageOverlay(null);
   }, [slide.id]);
 
-  // Stamp all elements with data-builder-id after render
+  // Stamp all elements with data-mk-id after render
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -1893,7 +1894,7 @@ export default function SlideEditor({
       const slideContent = container.querySelector(
         ".slide-content",
       ) as HTMLElement;
-      if (slideContent) stampBuilderIds(slideContent);
+      if (slideContent) stampElementIds(slideContent);
     }, 50);
     return () => clearTimeout(timer);
   }, [slide.id, slide.content]);
@@ -1915,10 +1916,10 @@ export default function SlideEditor({
       if (slideContent) {
         ids.forEach((id) => {
           const el = slideContent.querySelector(
-            `[data-builder-id="${id}"]`,
+            `[data-mk-id="${id}"]`,
           ) as HTMLElement | null;
           if (!el) return;
-          const selector = `[data-builder-id="${id}"]`;
+          const selector = `[data-mk-id="${id}"]`;
           const text = (el.textContent || "").trim().slice(0, 200);
           rects.set(id, { rect: el.getBoundingClientRect(), text, selector });
           items.push(selectionItemForElement(el, selector));
@@ -2074,13 +2075,13 @@ export default function SlideEditor({
       >();
       multiSelection.forEach((id) => {
         const el = slideContent.querySelector(
-          `[data-builder-id="${id}"]`,
+          `[data-mk-id="${id}"]`,
         ) as HTMLElement | null;
         if (!el) return;
         next.set(id, {
           rect: el.getBoundingClientRect(),
           text: (el.textContent || "").trim().slice(0, 200),
-          selector: `[data-builder-id="${id}"]`,
+          selector: `[data-mk-id="${id}"]`,
         });
       });
       setMultiSelectionRects(next);
@@ -2127,7 +2128,7 @@ export default function SlideEditor({
       if (multiSelection.size > 0) {
         for (const id of multiSelection) {
           const element = slideContent.querySelector(
-            `[data-builder-id="${id}"]`,
+            `[data-mk-id="${id}"]`,
           ) as HTMLElement | null;
           if (element) removeSlideObjectAndLayoutSpacer(element);
         }
@@ -2159,7 +2160,7 @@ export default function SlideEditor({
 
   /**
    * Find the nearest meaningful "element" for multi-select from a click target.
-   * Walks up to the closest [data-builder-id] inside the slide content. Skips
+   * Walks up to the closest [data-mk-id] inside the slide content. Skips
    * the slide-content root itself (clicking the slide background means
    * "deselect / start marquee", not "select the whole slide").
    */
@@ -2168,7 +2169,7 @@ export default function SlideEditor({
       let el: HTMLElement | null = target;
       while (el && slideContent.contains(el) && el !== slideContent) {
         if (el.classList.contains("fmd-layout-spacer")) return null;
-        const id = el.getAttribute("data-builder-id");
+        const id = el.getAttribute("data-mk-id");
         if (id) return id;
         el = el.parentElement;
       }
@@ -2182,7 +2183,7 @@ export default function SlideEditor({
       let el: HTMLElement | null = target;
       while (el && slideContent.contains(el) && el !== slideContent) {
         if (el.classList.contains("fmd-layout-spacer")) return null;
-        if (el.getAttribute("data-builder-id")) return el;
+        if (el.getAttribute("data-mk-id")) return el;
         el = el.parentElement;
       }
       return null;
@@ -2231,7 +2232,7 @@ export default function SlideEditor({
       const box = document.createElement("div");
       box.className = "fmd-text-box";
       ensureSlideObjectId(box);
-      ensureBuilderId(box);
+      ensureElementId(box);
       box.style.position = "absolute";
       box.style.left = `${x}px`;
       box.style.top = `${y}px`;
@@ -2346,7 +2347,7 @@ export default function SlideEditor({
         } else {
           element.removeAttribute("data-slide-object-id");
         }
-        const selector = getBuilderSelector(element);
+        const selector = getElementSelector(element);
         if (selector) selectElementForStyling(element, selector);
       };
 
@@ -2370,8 +2371,8 @@ export default function SlideEditor({
           if (duplicateRequested && moveEvent.altKey) {
             clone = cloneSlideObject(element);
             element.after(clone);
-            ensureBuilderId(clone);
-            stampBuilderIds(clone);
+            ensureElementId(clone);
+            stampElementIds(clone);
             activeElement = clone;
           }
         }
@@ -2381,7 +2382,7 @@ export default function SlideEditor({
           x: origin.x + dx,
           y: origin.y + dy,
         });
-        const selector = getBuilderSelector(activeElement);
+        const selector = getElementSelector(activeElement);
         if (selector) selectElementForStyling(activeElement, selector);
       };
 
@@ -2411,7 +2412,7 @@ export default function SlideEditor({
         }
         const html = readCurrentSlideContentHtml();
         if (html !== null) onUpdateSlideRef.current({ content: html });
-        const selector = getBuilderSelector(activeElement);
+        const selector = getElementSelector(activeElement);
         if (selector) selectElementForStyling(activeElement, selector);
       };
 
@@ -2467,7 +2468,7 @@ export default function SlideEditor({
       const startClientX = e.clientX;
       const startClientY = e.clientY;
       let resized = false;
-      const selector = getBuilderSelector(element);
+      const selector = getElementSelector(element);
       if (selector) selectElementForStyling(element, selector, "resizing");
 
       const stop = () => {
@@ -2496,7 +2497,7 @@ export default function SlideEditor({
             preserveAspectRatio: moveEvent.shiftKey,
           }),
         );
-        const currentSelector = getBuilderSelector(element);
+        const currentSelector = getElementSelector(element);
         if (currentSelector) {
           selectElementForStyling(element, currentSelector, "resizing");
         }
@@ -2504,7 +2505,7 @@ export default function SlideEditor({
 
       const onUp = () => {
         stop();
-        const currentSelector = getBuilderSelector(element);
+        const currentSelector = getElementSelector(element);
         if (currentSelector) selectElementForStyling(element, currentSelector);
         if (!resized) return;
         const html = readCurrentSlideContentHtml();
@@ -2519,7 +2520,7 @@ export default function SlideEditor({
         } else {
           element.removeAttribute("data-slide-object-id");
         }
-        const selector = getBuilderSelector(element);
+        const selector = getElementSelector(element);
         if (selector) selectElementForStyling(element, selector);
       };
 
@@ -2575,7 +2576,7 @@ export default function SlideEditor({
       applyObjectGeometry(element, geometry);
       const html = readCurrentSlideContentHtml();
       if (html !== null) onUpdateSlideRef.current({ content: html });
-      const selector = getBuilderSelector(element);
+      const selector = getElementSelector(element);
       if (selector) selectElementForStyling(element, selector);
     };
     window.addEventListener("keydown", onKey);
@@ -2740,17 +2741,17 @@ export default function SlideEditor({
       const hits = new Set<string>(
         marqueeAdditiveRef.current ? marqueePrevSelectionRef.current : [],
       );
-      const candidates = slideContent.querySelectorAll("[data-builder-id]");
+      const candidates = slideContent.querySelectorAll("[data-mk-id]");
       candidates.forEach((node) => {
         const el = node as HTMLElement;
         if (el.classList.contains("fmd-layout-spacer")) return;
-        const id = el.getAttribute("data-builder-id");
+        const id = el.getAttribute("data-mk-id");
         if (!id) return;
         // Skip the slide-content root itself if it ever got stamped
         if (el === slideContent) return;
         // Don't include containers that have selectable descendants — pick
         // the leaves so the agent gets a precise list, not duplicated parents.
-        if (el.querySelector("[data-builder-id]")) return;
+        if (el.querySelector("[data-mk-id]")) return;
         const r = el.getBoundingClientRect();
         if (rectsIntersect(marqueeRect, r)) hits.add(id);
       });
@@ -2941,7 +2942,7 @@ export default function SlideEditor({
       if (!readOnly && isHtmlSlide && slideContent) {
         const block = findSmartBlock(target, slideContent);
         if (block) {
-          const blockSelector = getBuilderSelector(block);
+          const blockSelector = getElementSelector(block);
           if (blockSelector) {
             selectElementForStyling(block, blockSelector);
             enterSelectionMode("agentNative.enterStyleEditing", {
@@ -2958,7 +2959,7 @@ export default function SlideEditor({
       const selectableEl = slideContent
         ? findSelectableElement(target, slideContent)
         : null;
-      const selector = selectableEl ? getBuilderSelector(selectableEl) : null;
+      const selector = selectableEl ? getElementSelector(selectableEl) : null;
       if (selector && selectableEl) {
         selectElementForStyling(selectableEl, selector);
         enterSelectionMode("agentNative.enterStyleEditing", { selector });
@@ -3102,23 +3103,6 @@ export default function SlideEditor({
       slide.id,
     ],
   );
-
-  // --- Pending visual updates ---
-  const [pendingUpdateCount, setPendingUpdateCount] = useState(0);
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const count = (e as CustomEvent).detail?.count ?? 0;
-      setPendingUpdateCount(count);
-    };
-    window.addEventListener("builder.agentChat.pendingUpdates", handler);
-    return () =>
-      window.removeEventListener("builder.agentChat.pendingUpdates", handler);
-  }, []);
-
-  const handleApplyUpdates = useCallback(() => {
-    agentChat.submit("Apply the pending visual updates");
-  }, []);
 
   const handleSlideDoubleClick = useCallback(
     (e: ReactMouseEvent) => {
@@ -3413,17 +3397,6 @@ export default function SlideEditor({
       />
 
       <BlockBubbleMenu editingEl={editingEl} />
-
-      {pendingUpdateCount > 0 && (
-        <div className="absolute top-4 right-4 z-50">
-          <button
-            onClick={handleApplyUpdates}
-            className="px-4 py-2 rounded-lg bg-[#609FF8] text-black text-sm font-semibold hover:bg-[#7AB2FA] transition-colors shadow-lg"
-          >
-            Apply Updates ({pendingUpdateCount})
-          </button>
-        </div>
-      )}
 
       {imageOverlay && (
         <ImageOverlay

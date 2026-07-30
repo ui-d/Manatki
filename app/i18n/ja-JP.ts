@@ -20,7 +20,7 @@ const messages = {
   },
   navigation: {
     settings: "設定",
-    brand: "スライド",
+    brand: "Manatki",
     decks: "デッキ",
     designSystems: "デザインシステム",
     team: "チーム",
@@ -98,8 +98,8 @@ const messages = {
     googlePickerNeedsKeys:
       "Google PickerにはGOOGLE_PICKER_API_KEYとGOOGLE_PICKER_APP_IDが必要です。",
     imageUploadFailed: "画像のアップロードに失敗しました",
-    imageUploadNeedsBuilder:
-      "スライドに画像をアップロードするには、エージェント作成欄のモデルメニューから Builder.io に接続してください。空のキャンバスに画像をドロップすると、プロバイダーなしでもエージェントに送信できます。",
+    imageUploadNeedsStorage:
+      "Image uploads need file storage. Configure a storage provider (e.g. Vercel Blob) to upload images onto slides. Dropping an image onto the canvas can still send it to the agent without a provider.",
     sentToAgent: "エージェントに送信しました",
     imageUploadGenericError: "この画像のアップロード中に問題が発生しました。",
     uploading: "アップロード中…",
@@ -146,12 +146,12 @@ const messages = {
     presentationNotFound: "プレゼンテーションが見つかりません",
     sharedPresentationExpired:
       "この共有プレゼンテーションは存在しないか期限切れです。",
-    routeNotFoundTitle: "見つかりません - Slides",
-    routeEditorTitle: "エディター — Slides",
-    routeDesignSystemsTitle: "デザインシステム - Slides",
-    routeSettingsTitle: "設定 - Slides",
+    routeNotFoundTitle: "見つかりません - Manatki",
+    routeEditorTitle: "エディター — Manatki",
+    routeDesignSystemsTitle: "デザインシステム - Manatki",
+    routeSettingsTitle: "設定 - Manatki",
     routeSharedTitle: "共有プレゼンテーション",
-    routeTeamTitle: "チーム — Slides",
+    routeTeamTitle: "チーム — Manatki",
     slidePreviewTitle: "スライドプレビュー",
     slideUnavailable: "スライドを利用できません",
     couldNotLoadSlide: "スライドを読み込めませんでした。",
@@ -517,8 +517,8 @@ const messages = {
     backToDecks: "返回幻灯片",
     tryAgain: "重试",
     imageUploadFailed: "图片上传失败",
-    imageUploadNeedsBuilder:
-      "スライドに画像をアップロードするには、エージェント作成欄のモデルメニューから Builder.io に接続してください。空のキャンバスに画像をドロップすると、プロバイダーなしでもエージェントに送信できます。",
+    imageUploadNeedsStorage:
+      "Image uploads need file storage. Configure a storage provider (e.g. Vercel Blob) to upload images onto slides. Dropping an image onto the canvas can still send it to the agent without a provider.",
     imageAdded: "图片已添加",
     imageUploadError: "上传此图片时出了点问题。",
     exportFailed: "导出失败",
@@ -529,12 +529,6 @@ const messages = {
     slidesAdded_other: "已添加 {{count}} 张幻灯片",
   },
   designSystemSetup: {
-    importedBrand: "インポートしたブランド",
-    figFileRequired:
-      ".fig ファイルを選択してください（Figma: File > Save local copy）。",
-    figFileTooLarge: "ファイルが大きすぎます（最大 {{maxSize}}）。",
-    figParseFailed:
-      "その Figma ファイルの Builder インデックス作成を開始できませんでした。",
     updated: "デザインシステムを更新しました",
     updateFailed: "更新に失敗しました",
     generationStarted: "デザインシステム生成を開始しました",
@@ -544,23 +538,12 @@ const messages = {
     newTitle: "新しいデザインシステム",
     editDescription: "ブランドアイデンティティを更新します。",
     newDescription:
-      "Figma、コード、任意の design.md ガイドを Builder DSI で接続します。",
+      "Build a design system from your website, code files, brand documents, and visual references.",
     companyBrand: "会社 / ブランド",
     companyBrandPlaceholder: "Acme Inc. — 開発者向けツールを作っています...",
-    figmaFile: "Figma を接続",
-    parsingFigmaFile: "Builder DSI のインデックス作成を開始しています...",
-    uploadFigDescription: "Builder DSI 用にローカル .fig コピーをアップロード",
-    builderIndexingStarted: "Builder インデックス作成を開始しました",
-    builderIndexingDescription:
-      "Builder is indexing {{title}} into a reusable design system.",
-    builderDesignSystemId: "デザインシステム",
-    builderJobId: "Job",
-    openInBuilder: "Builder で開く",
-    decodeFailed: "デコードに失敗しました: {{error}}",
     websiteUrl: "Web サイト URL",
     websitePlaceholder: "example.com または Nike",
     add: "追加",
-    githubRepository: "コードを接続: GitHub リポジトリ",
     codeFiles: "コードファイルを接続",
     codeFilesDrop:
       "CSS、Tailwind 設定、テーマファイル、design.md — ドロップまたはクリック",
@@ -583,7 +566,6 @@ const messages = {
     saveChanges: "変更を保存",
     continueToGeneration: "生成へ進む",
     removeItem: "{{item}} を削除",
-    chooseAnotherFile: "別のファイルを選択",
   },
   home: {
     loadFailed: "コンテンツを読み込めませんでした",

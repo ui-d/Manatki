@@ -22,36 +22,25 @@ Design systems are stored in the `design_systems` SQL table. Each has a `data` c
 3. Agent analyzes the data and calls `create-design-system` with extracted tokens
 4. The design system is published and becomes available for deck creation
 
+### Source: website
+
+`analyze-brand-assets` (or `import-from-url` per page) extracts CSS, fonts,
+colors, and logos from a live website. Turn the extracted values into concrete
+tokens and call `create-design-system`.
+
+### Source: code files or `design.md`
+
+When the user provides code files (CSS/Tailwind config/theme files) or a
+`design.md`, read the content directly, extract concrete token values
+(colors, typography, spacing, radii), and fold them into
+`create-design-system`. Treat `design.md` as authoritative brand guidance —
+apply its rules verbatim and store durable rules as `customInstructions`.
+
 ### Source: Figma `.fig` file
 
-When the user uploads a raw Figma local copy (`.fig`), start Builder
-design-system indexing with `import-file` instead of treating it like a
-document:
-
-```bash
-pnpm action import-file --filePath "data/uploads/brand.fig" --format fig
-```
-
-The action requires Builder to be connected and returns Builder `projectId`,
-`jobId`, `designSystemId`, and `builderUrl`. Builder is the source of truth for
-the indexed brand kit, generated docs, and usage guidance.
-
-Do not call `create-design-system` locally from `.fig` uploads. Do not call
-`import-document` for `.fig` files; it only handles metadata and will miss the
-Builder indexing flow.
-
-### Source: connected code, GitHub, or `design.md`
-
-For any other reusable source — connected code, a GitHub repo, local
-code/design files, or an optional `design.md` — use Builder-backed DSI
-indexing through `index-design-system-with-builder`. Pass readable `design.md`
-content as `designMd`, and use the returned local design system id in the rest
-of the Slides flow. Call `get-design-system` before generation so Builder docs
-and tokens are hydrated when available.
-
-Never create a duplicate local design system from raw Figma or code sources.
-Builder owns the indexed brand kit; a second local copy drifts from it and
-nothing records which one a deck was actually built from.
+Raw Figma local copies (`.fig`) are not importable. Ask the user to export
+brand pages as images (visual references) or paste token values, then build
+the design system from those sources instead.
 
 ### Source: workspace default
 
@@ -72,8 +61,7 @@ already baked into their slides — deletion never rewrites deck content — so 
 deck can look on-brand while no longer being linked to a system. If the
 deleted system was the caller's default, another of their design systems is
 promoted to default so future deck creation doesn't silently drop to "no
-design system". Deletion does not remove an upstream Builder-indexed design
-system.
+design system".
 
 ## Applying to Slides
 

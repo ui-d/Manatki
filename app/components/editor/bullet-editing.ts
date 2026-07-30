@@ -341,7 +341,7 @@ export function insertBulletAfterCaret(list: HTMLElement): boolean {
 
   const newRow = row.cloneNode(true) as HTMLElement;
   for (const el of [newRow, ...Array.from(newRow.querySelectorAll("*"))]) {
-    el.removeAttribute("data-builder-id");
+    el.removeAttribute("data-mk-id");
     el.removeAttribute("data-fusion-element-id");
   }
   row.after(newRow);

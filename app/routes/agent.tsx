@@ -15,7 +15,7 @@ export default function AgentRoute() {
 
   return (
     <AgentTabsPage
-      appName="Slides"
+      appName="Manatki"
       extraTabFactories={[createCreativeContextAgentTab]}
     />
   );

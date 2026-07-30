@@ -11,7 +11,9 @@ import {
   IconCopy,
   IconShare2,
   IconBrandGoogle,
+  IconPhotoDown,
   IconPlugConnected,
+  IconFileZip,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 
@@ -38,6 +40,13 @@ interface ExportMenuProps {
   onExportGoogleSlides?: () => Promise<GoogleSlidesExportResult>;
   onShareLink?: () => void;
   onShareTeam?: () => void;
+  /** "social" hides the presentation-shaped exports (PDF/PPTX/Google
+   *  Slides/HTML) and makes PNG the primary path. */
+  deckKind?: "deck" | "social";
+  /** Download the current asset as a PNG (social projects). */
+  onExportPngCurrent?: () => Promise<void> | void;
+  /** Download every asset as PNGs in a ZIP (social projects). */
+  onExportPngZip?: () => Promise<void> | void;
 }
 
 export function ExportMenu({
@@ -49,6 +58,9 @@ export function ExportMenu({
   onExportGoogleSlides,
   onShareLink,
   onShareTeam,
+  deckKind,
+  onExportPngCurrent,
+  onExportPngZip,
 }: ExportMenuProps) {
   const t = useT();
   const triggerBlobDownload = (blob: Blob, filename: string) => {
@@ -177,6 +189,21 @@ export function ExportMenu({
     }
   };
 
+  const isSocial = deckKind === "social";
+
+  const handlePngExport = async (fn?: () => Promise<void> | void) => {
+    if (!fn) return;
+    try {
+      await fn();
+    } catch (err) {
+      console.error("Export failed:", err);
+      toast.error(t("editorExport.exportFailed"), {
+        description:
+          err instanceof Error ? err.message : t("editorExport.exportPngError"),
+      });
+    }
+  };
+
   const handleExportHtml = async () => {
     try {
       const res = await fetch(`${appBasePath()}/api/exports/html`, {
@@ -231,34 +258,62 @@ export function ExportMenu({
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleExportHtml} className="cursor-pointer">
-          <IconCode className="w-4 h-4 mr-2" />
-          {t("editorExport.downloadHtml")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onExportPdf} className="cursor-pointer">
-          <IconFileTypePdf className="w-4 h-4 mr-2" />
-          {t("editorExport.exportPdf")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleExportPptx} className="cursor-pointer">
-          <IconDownload className="w-4 h-4 mr-2" />
-          {t("editorExport.exportPptx")}
-        </DropdownMenuItem>
-        {onExportGoogleSlides && (
+        {isSocial && onExportPngCurrent && (
+          <DropdownMenuItem
+            onClick={() => handlePngExport(onExportPngCurrent)}
+            className="cursor-pointer"
+          >
+            <IconPhotoDown className="w-4 h-4 mr-2" />
+            {t("editorExport.downloadPng")}
+          </DropdownMenuItem>
+        )}
+        {isSocial && onExportPngZip && (
+          <DropdownMenuItem
+            onClick={() => handlePngExport(onExportPngZip)}
+            className="cursor-pointer"
+          >
+            <IconFileZip className="w-4 h-4 mr-2" />
+            {t("editorExport.downloadAllPngZip")}
+          </DropdownMenuItem>
+        )}
+        {!isSocial && (
           <>
             <DropdownMenuItem
-              onClick={handleConnectGoogle}
+              onClick={handleExportHtml}
               className="cursor-pointer"
             >
-              <IconPlugConnected className="w-4 h-4 mr-2" />
-              {t("editorExport.connectGoogle")}
+              <IconCode className="w-4 h-4 mr-2" />
+              {t("editorExport.downloadHtml")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onExportPdf} className="cursor-pointer">
+              <IconFileTypePdf className="w-4 h-4 mr-2" />
+              {t("editorExport.exportPdf")}
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={handleExportGoogleSlides}
+              onClick={handleExportPptx}
               className="cursor-pointer"
             >
-              <IconBrandGoogle className="w-4 h-4 mr-2" />
-              {t("editorExport.openInGoogleSlides")}
+              <IconDownload className="w-4 h-4 mr-2" />
+              {t("editorExport.exportPptx")}
             </DropdownMenuItem>
+            {onExportGoogleSlides && (
+              <>
+                <DropdownMenuItem
+                  onClick={handleConnectGoogle}
+                  className="cursor-pointer"
+                >
+                  <IconPlugConnected className="w-4 h-4 mr-2" />
+                  {t("editorExport.connectGoogle")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleExportGoogleSlides}
+                  className="cursor-pointer"
+                >
+                  <IconBrandGoogle className="w-4 h-4 mr-2" />
+                  {t("editorExport.openInGoogleSlides")}
+                </DropdownMenuItem>
+              </>
+            )}
           </>
         )}
         <DropdownMenuSeparator />

@@ -311,7 +311,7 @@ button[title="Open agent sidebar"] {
   @apply max-w-full max-h-[60vh] mx-auto rounded-lg;
 }
 
-/* Builder brand table styling for slides */
+/* Brand table styling for slides */
 .slide-content table {
   @apply w-full text-left;
   border-collapse: collapse;
@@ -330,7 +330,7 @@ button[title="Open agent sidebar"] {
   color: #ffffff;
 }
 
-/* Builder brand hr styling */
+/* Brand hr styling */
 .slide-content hr {
   @apply my-4;
   border-color: rgba(255, 255, 255, 0.06);
@@ -610,22 +610,6 @@ button[title="Open agent sidebar"] {
   font-weight: 700;
   color: #ffffff;
   font-size: 15px;
-}
-
-/* Builder logo text */
-.fmd-builder-logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 18px;
-  font-weight: 600;
-  color: #ffffff;
-  font-family: "Poppins", sans-serif;
-}
-
-.fmd-builder-logo svg {
-  width: 24px;
-  height: 24px;
 }
 
 /* Approval workflow */

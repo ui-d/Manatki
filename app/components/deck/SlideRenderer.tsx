@@ -13,7 +13,8 @@ import rehypeRaw from "rehype-raw";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Slide } from "@/context/DeckContext";
-import { type AspectRatio, getAspectRatioDims } from "@/lib/aspect-ratios";
+import { type AspectRatio } from "@/lib/aspect-ratios";
+import { getSlideDims } from "@/lib/slide-size";
 import {
   sanitizeCssValue,
   sanitizeSlideHtml,
@@ -571,7 +572,8 @@ export function SlideInner({
   onOverflowChange?: (info: SlideOverflowInfo) => void;
 }) {
   const t = useT();
-  const dims = getAspectRatioDims(aspectRatio);
+  // Per-slide size (social assets) wins over the deck-level aspect ratio.
+  const dims = getSlideDims(slide, aspectRatio);
   const sizeStyle: React.CSSProperties = {
     width: dims.width,
     height: dims.height,
@@ -734,7 +736,7 @@ export default function SlideRenderer({
   aspectRatio,
   onOverflowChange,
 }: SlideRendererProps) {
-  const dims = getAspectRatioDims(aspectRatio);
+  const dims = getSlideDims(slide, aspectRatio);
 
   if (!thumbnail) {
     // Full-size rendering (for presentation mode) — same intrinsic canvas scaled to fill
