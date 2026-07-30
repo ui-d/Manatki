@@ -1,3 +1,4 @@
+import { callAction } from "@agent-native/core/client/hooks";
 import {
   useCallback,
   useEffect,
@@ -206,6 +207,35 @@ export default function PresenterStage({
     flashCounter(`${index + 1} / ${entries.length}`);
   }, [index, entries.length, flashCounter]);
 
+  /* The saved per-user setting wins over the localStorage mirror, so a
+     variant chosen from chat ("set preview style to dim") or on another
+     device is picked up on the next presenter load. */
+  useEffect(() => {
+    let cancelled = false;
+    callAction<{ variant: string | null }>(
+      "get-presenter-variant",
+      {},
+      { method: "GET" },
+    )
+      .then(({ variant: saved }) => {
+        if (cancelled || !saved) return;
+        if ((PRESENTER_VARIANTS as readonly string[]).includes(saved)) {
+          setVariant(saved as PresenterVariant);
+          try {
+            localStorage.setItem(VARIANT_KEY, saved);
+          } catch {
+            /* see storedVariant */
+          }
+        }
+      })
+      .catch(() => {
+        /* offline/share contexts have no settings — localStorage stands */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const cycleVariant = useCallback(() => {
     const next =
       PRESENTER_VARIANTS[
@@ -217,6 +247,9 @@ export default function PresenterStage({
     } catch {
       /* see storedVariant */
     }
+    // Write-through to the per-user setting; localStorage already has it,
+    // so a failed write only costs cross-device sync.
+    callAction("set-presenter-variant", { variant: next }).catch(() => {});
     flashCounter(`preview: ${next}`);
   }, [variant, flashCounter]);
 

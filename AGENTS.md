@@ -100,6 +100,9 @@ Read the relevant skill before deeper work:
 - `create-deck` for new decks, reference decks, workspace defaults, outlines.
 - `slide-editing` for targeted slide changes.
 - `deck-management` for organization, sharing, import/export, and metadata.
+- `presenter` for the two-pane presenter stage: preview variants
+  (`set-presenter-variant`), per-slide screenshot grids
+  (`attach-slide-screenshots`), and image decks (`import-images-deck`).
 - `slide-images` and `image-generation-via-a2a` for image work.
 - `design-systems`, `frontend-design`, `shadcn-ui`, and `actions` as needed.
 - `creative-context` for cross-app source reuse, pinned packs, provenance, and

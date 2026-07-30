@@ -85,3 +85,10 @@ pnpm action db-exec --sql "INSERT INTO decks (id, title, data) VALUES (?, ?, ?)"
 3. **Slide IDs within a deck are stable** -- used for referencing specific slides
 4. **The `data` column is the full source of truth** -- title is duplicated at the top level for listing queries
 5. **SSE events** (`source: "resources"`) fire when decks change, keeping the UI in sync
+
+## Presenter extensions (this app)
+
+Image decks and presenter screenshot grids are covered in the `presenter`
+skill. Relevant actions: `import-images-deck`, `attach-slide-screenshots`,
+`set-presenter-variant` / `get-presenter-variant`. Slides carry two additive
+fields: `kind?: "html" | "image"` and `screenshots?: string[]`.
