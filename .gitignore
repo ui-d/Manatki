@@ -40,3 +40,10 @@ learnings.md
 
 .vercel/
 .agent-native/
+
+.generated/
+
+# Local databases
+data/*.db
+data/*.db-*
+data/pglite/
