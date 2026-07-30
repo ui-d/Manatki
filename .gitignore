@@ -47,3 +47,4 @@ learnings.md
 data/*.db
 data/*.db-*
 data/pglite/
+data/uploads-public/

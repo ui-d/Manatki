@@ -20,6 +20,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 import DeckCard from "@/components/deck/DeckCard";
+import ImportImagesDeckButton from "@/components/deck/ImportImagesDeckButton";
 import PromptPopover from "@/components/editor/PromptDialog";
 import type { UploadedFile } from "@/components/editor/PromptDialog";
 import {
@@ -678,10 +679,13 @@ export default function Index() {
   useSetHeaderActions(
     useMemo(
       () => (
-        <Button onClick={openNewDeck} size="sm" className="cursor-pointer">
-          <IconPlus className="w-3.5 h-3.5" />
-          {t("home.newDeck")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <ImportImagesDeckButton />
+          <Button onClick={openNewDeck} size="sm" className="cursor-pointer">
+            <IconPlus className="w-3.5 h-3.5" />
+            {t("home.newDeck")}
+          </Button>
+        </div>
       ),
       [openNewDeck, t],
     ),
