@@ -72,6 +72,8 @@ const SlideFieldsSchema = z.object({
   excalidrawData: z.string().optional(),
   transition: z.string().optional(),
   animations: z.array(z.unknown()).optional(),
+  kind: z.enum(["html", "image"]).optional(),
+  screenshots: z.array(z.string()).optional(),
 });
 
 /** Update fields on a single existing slide */
@@ -207,6 +209,9 @@ export function applyOperation(deck: any, op: Operation): void {
         slide.excalidrawData = fields.excalidrawData;
       if (fields.transition !== undefined) slide.transition = fields.transition;
       if (fields.animations !== undefined) slide.animations = fields.animations;
+      if (fields.kind !== undefined) slide.kind = fields.kind;
+      if (fields.screenshots !== undefined)
+        slide.screenshots = fields.screenshots;
       break;
     }
 

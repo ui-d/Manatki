@@ -4,6 +4,7 @@ import { useParams, Navigate, useSearchParams } from "react-router";
 
 import PresentationView from "@/components/presentation/PresentationView";
 import PresenterView from "@/components/presentation/PresenterView";
+import PresenterStage from "@/components/presenter/PresenterStage";
 import { useDecks } from "@/context/DeckContext";
 import type { Deck } from "@/context/DeckContext";
 
@@ -63,12 +64,35 @@ export default function Presentation() {
     ? Math.max(0, parsedSlide - 1)
     : 0;
 
+  const slides = Array.isArray(deck.slides) ? deck.slides : [];
+
+  // The two-pane presenter stage: explicit via ?mode=stage, and the default
+  // for image decks (every slide kind "image") unless another mode is asked
+  // for. ?mode=slides forces the template's single-slide playback.
+  const mode = searchParams.get("mode");
+  const isImageDeck =
+    slides.length > 0 && slides.every((slide) => slide.kind === "image");
+  const useStage =
+    mode === "stage" ||
+    (isImageDeck && mode !== "slides" && searchParams.get("presenter") !== "1");
+
+  if (useStage) {
+    return (
+      <PresenterStage
+        slides={slides}
+        deckId={id}
+        startIndex={startSlide}
+        aspectRatio={deck.aspectRatio}
+      />
+    );
+  }
+
   const View =
     searchParams.get("presenter") === "1" ? PresenterView : PresentationView;
 
   return (
     <View
-      slides={Array.isArray(deck.slides) ? deck.slides : []}
+      slides={slides}
       deckId={id}
       startIndex={startSlide}
       aspectRatio={deck.aspectRatio}

@@ -1,0 +1,557 @@
+/* Two-pane presenter stage — ported from the original standalone slideshow.
+   Everything is scoped under .presenter-root; the design lives in
+   interdependent CSS custom properties, so this stays plain CSS. */
+
+.presenter-root {
+  --bg: #0b0b0c;
+  --frame: #111113;
+  --pad: 2vh;
+  --gap: 2.2vh;
+  /* Share of the screen height a slide uses when height is the limiting side. */
+  --fill: 90vh;
+  /* Pane shape (height ÷ width). Defaults to A4 (1 : √2); replaced at runtime
+     with the deck's aspect ratio, or the real ratio of the first slide for
+     image decks, so slides fill the pane exactly. */
+  --ratio: 1.4142;
+  /* Size off the height so two panes always fit the viewport. */
+  --h: min(
+    var(--fill),
+    (100vw - var(--gap) - 2 * var(--pad)) / 2 * var(--ratio)
+  );
+  --w: calc(var(--h) / var(--ratio));
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur: 0.45s;
+  /* Width of the refracting band along each border. Different per axis so the
+     bevel comes out roughly square in pixels on a portrait pane. */
+  --bevel-x: 4%;
+  --bevel-y: 2.9%;
+
+  /* How the upcoming pane is presented. Five treatments, keyed off
+     data-variant; V cycles through them. Each block sets:
+     --blur       defocus of the preview image
+     --overscan   how far the plate is pushed past the pane's clip; must
+                  outrun the blur's fringe (~2σ), 1 when there is no blur
+     --desat      saturation of the preview image
+     --veil       what the ::after veil paints (colour or gradient)
+     --dim        opacity of that veil
+     --scale-back how far the whole inactive pane sits back
+     Defaults below mirror the soft variant so the page reads the same
+     for the instant before the variant lands. */
+  --blur: clamp(1.5px, 0.25vh, 3px);
+  --overscan: 1.015;
+  --desat: 0.95;
+  --veil: var(--bg);
+  --dim: 0.18;
+  --scale-back: 0.97;
+
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--bg);
+  overflow: hidden;
+  font:
+    400 16px/1.5 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Helvetica,
+    Arial,
+    sans-serif;
+  color: #e7e7ea;
+}
+
+/* soft — the frosted look, kept light: the pane still reads as a slide. */
+.presenter-root[data-variant="soft"] {
+  --blur: clamp(1.5px, 0.25vh, 3px);
+  --overscan: 1.015;
+  --desat: 0.95;
+  --dim: 0.18;
+  --scale-back: 0.97;
+}
+
+/* dim — pixel-sharp, pushed back only by desaturation and a light veil. */
+.presenter-root[data-variant="dim"] {
+  --blur: 0px;
+  --overscan: 1;
+  --desat: 0.55;
+  --dim: 0.28;
+  --scale-back: 0.97;
+}
+
+/* fade — sharp, sinking into shadow towards the screen edge. The gradient
+   carries its own alpha, so the veil's opacity stays at 1. */
+.presenter-root[data-variant="fade"] {
+  --blur: 0px;
+  --overscan: 1;
+  --desat: 0.8;
+  --veil: linear-gradient(
+    to right,
+    rgba(11, 11, 12, 0.08),
+    rgba(11, 11, 12, 0.5)
+  );
+  --dim: 1;
+  --scale-back: 0.97;
+}
+
+/* card — an explicit "up next" thumbnail: smaller, sharp, labelled. */
+.presenter-root[data-variant="card"] {
+  --blur: 0px;
+  --overscan: 1;
+  --desat: 1;
+  --dim: 0.1;
+  --scale-back: 0.78;
+}
+
+/* combo — soft + fade + card in one: a smaller labelled thumbnail, lightly
+   frosted, sinking into shadow towards the screen edge. */
+.presenter-root[data-variant="combo"] {
+  --blur: clamp(1.5px, 0.25vh, 3px);
+  --overscan: 1.015;
+  --desat: 0.9;
+  --veil: linear-gradient(
+    to right,
+    rgba(11, 11, 12, 0.06),
+    rgba(11, 11, 12, 0.45)
+  );
+  --dim: 1;
+  --scale-back: 0.78;
+}
+
+.presenter-root *,
+.presenter-root *::before,
+.presenter-root *::after {
+  box-sizing: border-box;
+}
+
+.presenter-root .pr-filters {
+  position: absolute;
+}
+
+.presenter-root .pr-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+/* Window showing exactly two panes; the track slides behind it. */
+.presenter-root .viewport {
+  width: calc(2 * var(--w) + var(--gap));
+  height: var(--h);
+  overflow: hidden;
+}
+
+.presenter-root .track {
+  display: flex;
+  gap: var(--gap);
+  height: 100%;
+  transform: translateX(calc(-1 * var(--i, 0) * (var(--w) + var(--gap))));
+  transition: transform var(--dur) var(--ease);
+  will-change: transform;
+}
+
+.presenter-root .slide {
+  position: relative;
+  flex: 0 0 var(--w);
+  height: var(--h);
+  background: var(--frame);
+  border-radius: 3px;
+  overflow: hidden;
+  /* Inactive panes sit a touch further back. */
+  transform: scale(var(--scale-back));
+  transition:
+    transform var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    opacity var(--dur) var(--ease);
+}
+
+.presenter-root .slide.is-active {
+  transform: scale(1);
+  box-shadow: 0 2vh 6vh rgba(0, 0, 0, 0.55);
+}
+
+/* The blur lives on an inner plate that is scaled past the pane's clip, so the
+   soft fringe a Gaussian leaves around its element is cropped away and the
+   pane keeps hard edges. Blurring .slide directly feathers its own corners. */
+.presenter-root .plate {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  transform: scale(var(--overscan));
+  filter: blur(var(--blur)) saturate(var(--desat));
+  transition:
+    transform var(--dur) var(--ease),
+    filter var(--dur) var(--ease);
+}
+
+.presenter-root .slide.is-active .plate {
+  transform: scale(1);
+  filter: blur(0) saturate(1);
+}
+
+/* Bevel: a second copy of the slide pushed through #bevel, whose displacement
+   map is flat across the middle and ramps inward only inside the border band —
+   so the image stretches out towards the rim the way it does through the
+   rounded edge of thick glass. Masked to that band; the flat plate shows
+   through everywhere else.
+
+   Its filter carries a url(), which cannot interpolate, so this layer never
+   animates its filter — it cross-fades on opacity while .plate handles the
+   focus pull. */
+.presenter-root .glass {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  /* Slightly brighter and more saturated than the plate: glass edges catch
+     light, and the lift is what separates the band from a plain smear. */
+  filter: url(#bevel) blur(calc(var(--blur) * 0.7)) saturate(1.05)
+    brightness(1.05);
+  mask-image:
+    linear-gradient(
+      to right,
+      #000,
+      transparent var(--bevel-x),
+      transparent calc(100% - var(--bevel-x)),
+      #000
+    ),
+    linear-gradient(
+      to bottom,
+      #000,
+      transparent var(--bevel-y),
+      transparent calc(100% - var(--bevel-y)),
+      #000
+    );
+  mask-composite: add;
+  -webkit-mask-composite: source-over;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.presenter-root .slide.is-active .glass {
+  opacity: 0;
+}
+
+/* The bevel exists to sell the frosted glass; the sharp variants drop it. */
+.presenter-root[data-variant="dim"] .glass,
+.presenter-root[data-variant="fade"] .glass,
+.presenter-root[data-variant="card"] .glass {
+  display: none;
+}
+
+/* Flat veil rather than a brightness() filter: a filter would also dim the
+   blur fringe, and it can't sit under the active pane's shadow. */
+.presenter-root .slide::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: var(--veil);
+  opacity: var(--dim);
+  transition: opacity var(--dur) var(--ease);
+  pointer-events: none;
+}
+
+.presenter-root .slide.is-active::after {
+  opacity: 0;
+}
+
+/* Specular rim — the highlight and contact shadow that give the bevel
+   thickness. Sits above the veil so the catchlight stays crisp. */
+.presenter-root .slide::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  pointer-events: none;
+  transition: opacity var(--dur) var(--ease);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.3),
+    inset 0 -1.5px 1px rgba(0, 0, 0, 0.34);
+}
+
+.presenter-root .slide.is-active::before {
+  opacity: 0;
+}
+
+.presenter-root .slide img.pr-fill {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* The generated "Thank you" slide is a transparent SVG — only its text
+   should show. The frame, rim, glass bevel and shadow would each draw a
+   ghost rectangle around nothing, so they're dropped. The veil stays: it
+   paints in the page background's colour, so it is invisible against the
+   backdrop yet still mutes the text while the slide is the preview. */
+.presenter-root .slide.plain {
+  background: transparent;
+}
+.presenter-root .slide.plain.is-active {
+  box-shadow: none;
+}
+.presenter-root .slide.plain::before {
+  display: none;
+}
+.presenter-root .slide.plain .glass {
+  display: none;
+}
+
+/* With no pane to frame it, the closer would float off-centre in the left
+   half — slide the track an extra half step to centre it on screen. */
+.presenter-root.on-plain .track {
+  transform: translateX(
+    calc((var(--w) + var(--gap)) / 2 - var(--i, 0) * (var(--w) + var(--gap)))
+  );
+}
+
+/* …and the previous slide, whose edge would otherwise peek in, fades out
+   so the closing text stands alone. */
+.presenter-root.on-plain .slide:not(.is-active) {
+  opacity: 0;
+}
+
+/* "NEXT" tag for the card variant. The shrunk pane leaves a dark band above
+   it, so the tag floats there rather than over the slide's own content —
+   centred on the right pane, just above the scaled pane's top edge. Shown
+   while a next slide exists. */
+.presenter-root .pr-next-tag {
+  position: absolute;
+  left: calc(50% + (var(--gap) + var(--w)) / 2);
+  top: calc(50% - var(--h) * var(--scale-back) / 2);
+  transform: translate(-50%, -140%);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #9a9aa4;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+  pointer-events: none;
+}
+
+.presenter-root[data-variant="card"].has-next .pr-next-tag,
+.presenter-root[data-variant="combo"].has-next .pr-next-tag {
+  opacity: 1;
+}
+
+/* Screenshot grid — slides with attached screenshots show them here, over the
+   right pane, instead of the next-slide preview. Sharp and undimmed: they are
+   supporting content for the slide being presented, not a teaser. The column
+   count is set per slide from script (--shot-cols); rows follow. */
+.presenter-root .pr-shots {
+  --shot-gap: 1.2vh;
+  /* The grid leaves as a block, quicker than a slide change; each shot fades
+     itself in on the way back. Mirrored by SHOT_OUT_MS / SHOT_FADE_MS. */
+  --shot-out: 0.22s;
+  --shot-fade: 0.32s;
+  position: absolute;
+  left: calc(50% + var(--gap) / 2);
+  top: calc(50% - var(--h) / 2);
+  width: var(--w);
+  height: var(--h);
+  /* Wrapping flex rather than grid: a partial last row (3 shots in 2
+     columns) then centres itself instead of hugging the left edge. */
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: center;
+  gap: var(--shot-gap);
+  opacity: 0;
+  transition: opacity var(--shot-out) var(--ease);
+  pointer-events: none;
+}
+
+/* Instant on the way in: the shots choreograph their own entrance, and a
+   container fade on top of that would compound with every one of them. */
+.presenter-root.has-shots .pr-shots {
+  opacity: 1;
+  transition-duration: 0s;
+}
+
+/* Fading the grid out without dropping .has-shots — so a slide with shots can
+   hand over to another one without the blurred preview flashing back in
+   between. Outranks the rule above, and restores the duration it zeroed. */
+.presenter-root.has-shots .pr-shots.is-leaving {
+  opacity: 0;
+  transition-duration: var(--shot-out);
+}
+
+.presenter-root .pr-shots img {
+  width: calc(
+    (100% - (var(--shot-cols, 1) - 1) * var(--shot-gap)) / var(--shot-cols, 1)
+  );
+  height: calc(
+    (100% - (var(--shot-rows, 1) - 1) * var(--shot-gap)) / var(--shot-rows, 1)
+  );
+  object-fit: contain;
+  display: block;
+  border-radius: 3px;
+  cursor: zoom-in;
+  /* Shots rest hidden and are let in one by one by showShots(), once the whole
+     grid has decoded and its column split is final. Hiding them here rather
+     than from script means one can never paint before its turn, not even on a
+     cache hit. */
+  opacity: 0;
+  transform: scale(0.99);
+  transition:
+    opacity var(--shot-fade) var(--ease),
+    transform var(--shot-fade) var(--ease);
+}
+
+.presenter-root .pr-shots img.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* The container stays click-through; only the shots themselves take a click,
+   and only once the grid actually owns the pane. */
+.presenter-root.has-shots .pr-shots img {
+  pointer-events: auto;
+}
+
+/* Magnified screenshot — a shot clicked in the grid, lifted out of its cell to
+   fill the screen. The backdrop is all but opaque: once a screenshot is being
+   examined, the slide behind it is no longer the point. */
+.presenter-root .pr-zoom {
+  --zoom-dur: 0.34s;
+  --zoom-swap: 0.13s;
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  /* Nearly solid: at .94 a bright slide ghosts through at the screen edge,
+     which reads as a rendering fault from the back of a room. */
+  background: rgba(11, 11, 12, 0.985);
+  opacity: 0;
+  transition: opacity var(--zoom-dur) var(--ease);
+  cursor: zoom-out;
+}
+
+.presenter-root .pr-zoom[hidden] {
+  display: none;
+}
+.presenter-root .pr-zoom.is-open {
+  opacity: 1;
+}
+
+.presenter-root .pr-zoom img {
+  /* Bounded, never stretched: the box a picture gets is exactly the picture,
+     which is what lets the grow/retract maths in parkOn() stay this short.
+     Screenshots are far larger than a grid cell, so capping at natural size
+     still magnifies — and never blows one up into mush. */
+  max-width: calc(100vw - 2 * var(--pad));
+  max-height: calc(100vh - 2 * var(--pad));
+  display: block;
+  border-radius: 3px;
+  /* Script parks the picture over its grid cell and then lets go; the origin
+     has to be the corner the offsets are measured from. */
+  transform-origin: top left;
+  transition:
+    transform var(--zoom-dur) var(--ease),
+    opacity var(--zoom-swap) var(--ease);
+}
+
+/* Mid-step: the outgoing shot dips out so the change of shape is never seen. */
+.presenter-root .pr-zoom img.is-swapping {
+  opacity: 0;
+}
+
+/* Which shot of the slide's set is up. Same pill as the slide counter, in the
+   same place — the counter itself is behind the backdrop while this is open. */
+.presenter-root .pr-zoom-count {
+  position: absolute;
+  bottom: 1.1vh;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #9a9aa4;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.presenter-root .pr-zoom-count:empty {
+  display: none;
+}
+
+/* While the grid is up, the pane behind it — the blurred preview — and the
+   NEXT tag get out of the way. (.has-next needed to outweigh the variant
+   rules that show the tag.) */
+.presenter-root.has-shots .slide.is-active ~ .slide {
+  opacity: 0;
+}
+.presenter-root.has-shots.has-next .pr-next-tag {
+  opacity: 0;
+}
+
+/* Counter, fades out when idle. Slides run nearly edge to edge, so the
+   counter needs its own backdrop. */
+.presenter-root .pr-counter {
+  position: absolute;
+  bottom: 1.1vh;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #9a9aa4;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+.presenter-root .pr-counter.show {
+  opacity: 1;
+}
+
+/* Elapsed-time timer, toggled with T. Pill like the counter, but bigger
+   and brighter so it stays readable at a glance. */
+.presenter-root .pr-timer {
+  position: absolute;
+  bottom: 1.1vh;
+  right: 1.1vh;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #f2f2f5;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+.presenter-root .pr-timer.show {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .presenter-root .track,
+  .presenter-root .slide,
+  .presenter-root .plate,
+  .presenter-root .glass,
+  .presenter-root .pr-next-tag,
+  .presenter-root .pr-shots,
+  .presenter-root .pr-zoom,
+  .presenter-root .pr-zoom img,
+  .presenter-root .slide::before,
+  .presenter-root .slide::after {
+    transition-duration: 0.01ms;
+  }
+  /* !important: the stagger is written as an inline transition-delay. */
+  .presenter-root .pr-shots img {
+    transition-duration: 0.01ms;
+    transition-delay: 0s !important;
+  }
+}

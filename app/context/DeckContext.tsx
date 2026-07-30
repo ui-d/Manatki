@@ -87,6 +87,11 @@ export interface Slide {
   notes: string;
   layout: SlideLayout;
   background?: string;
+  /** Slide kind — "image" slides are a single full-bleed picture (imageUrl);
+   * absent or "html" is a regular HTML slide. */
+  kind?: "html" | "image";
+  /** Supporting screenshots shown as a grid in the presenter's preview pane. */
+  screenshots?: string[];
   /** URL of the generated/loaded image for this slide */
   imageUrl?: string;
   /** If true, an image is currently being generated for this slide */
