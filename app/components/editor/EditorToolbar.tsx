@@ -118,6 +118,10 @@ interface EditorToolbarProps {
   animationsOpen?: boolean;
   /** Toggle the animations panel */
   onToggleAnimations?: () => void;
+  /** Whether the presenter screenshots panel is open */
+  screenshotsOpen?: boolean;
+  /** Toggle the presenter screenshots panel */
+  onToggleScreenshots?: () => void;
   /** Whether the tweaks panel is open */
   tweaksOpen?: boolean;
   /** Toggle the tweaks panel */
@@ -264,6 +268,8 @@ export default function EditorToolbar({
   currentUserEmail,
   animationsOpen,
   onToggleAnimations,
+  screenshotsOpen,
+  onToggleScreenshots,
   tweaksOpen,
   onToggleTweaks,
   drawMode,
@@ -335,7 +341,7 @@ export default function EditorToolbar({
   // The secondary tools share an "active when something is on" indicator so
   // the dot on the consolidated button reflects any of them.
   const anyToolActive = Boolean(
-    animationsOpen || tweaksOpen || drawMode || pinMode,
+    animationsOpen || screenshotsOpen || tweaksOpen || drawMode || pinMode,
   );
 
   const closeAll = () => {
@@ -825,6 +831,19 @@ graph TD
                   >
                     <IconBolt className="size-4" />
                     {t("editorToolbar.elementAnimations")}
+                  </DropdownMenuItem>
+                )}
+                {currentSlide && onToggleScreenshots && (
+                  <DropdownMenuItem
+                    onSelect={onToggleScreenshots}
+                    className={
+                      screenshotsOpen
+                        ? "bg-accent text-accent-foreground"
+                        : undefined
+                    }
+                  >
+                    <IconPhoto className="size-4" />
+                    Presenter screenshots
                   </DropdownMenuItem>
                 )}
                 {onToggleTweaks && (

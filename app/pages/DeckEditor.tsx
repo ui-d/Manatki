@@ -48,6 +48,7 @@ import ImageGenPanel from "@/components/editor/ImageGenPanel";
 import ImageSearchPanel from "@/components/editor/ImageSearchPanel";
 import LogoSearchPanel from "@/components/editor/LogoSearchPanel";
 import { QuestionFlow } from "@/components/editor/QuestionFlow";
+import { ScreenshotsPanel } from "@/components/editor/ScreenshotsPanel";
 import SlideEditor from "@/components/editor/SlideEditor";
 import { TweaksPanel } from "@/components/editor/TweaksPanel";
 import { Button } from "@/components/ui/button";
@@ -208,6 +209,7 @@ export default function DeckEditor() {
   const historyButtonRef = useRef<HTMLButtonElement>(null);
   const [sidePanel, setSidePanel] = useState<EditorSidePanel>(null);
   const [animationsOpen, setAnimationsOpen] = useState(false);
+  const [screenshotsOpen, setScreenshotsOpen] = useState(false);
   const [tweaksOpen, setTweaksOpen] = useState(false);
   const [drawMode, setDrawMode] = useState(false);
   const [pinMode, setPinMode] = useState(false);
@@ -921,6 +923,8 @@ export default function DeckEditor() {
         currentUserEmail={session?.email}
         animationsOpen={animationsOpen}
         onToggleAnimations={() => setAnimationsOpen((o) => !o)}
+        screenshotsOpen={screenshotsOpen}
+        onToggleScreenshots={() => setScreenshotsOpen((o) => !o)}
         tweaksOpen={tweaksOpen}
         onToggleTweaks={() => setTweaksOpen((o) => !o)}
         drawMode={drawMode}
@@ -1156,6 +1160,16 @@ export default function DeckEditor() {
               updateSlide(id, currentSlide.id, updates)
             }
             onClose={() => setAnimationsOpen(false)}
+          />
+        )}
+
+        {screenshotsOpen && currentSlide && (
+          <ScreenshotsPanel
+            slide={currentSlide}
+            onUpdateSlide={(updates) =>
+              updateSlide(id, currentSlide.id, updates)
+            }
+            onClose={() => setScreenshotsOpen(false)}
           />
         )}
 
