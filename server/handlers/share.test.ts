@@ -13,10 +13,12 @@ const mockInsertValues = vi.hoisted(() =>
   }),
 );
 const mockDeleteWhere = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const mockGetRouterParam = vi.hoisted(() => vi.fn());
+const selectRows = vi.hoisted(() => ({ current: [] as unknown[] }));
 
 vi.mock("h3", () => ({
   defineEventHandler: (handler: unknown) => handler,
-  getRouterParam: vi.fn(),
+  getRouterParam: (...args: unknown[]) => mockGetRouterParam(...args),
   setResponseStatus: (...args: unknown[]) => mockSetResponseStatus(...args),
 }));
 
@@ -40,6 +42,13 @@ vi.mock("../db", () => ({
   getDb: () => ({
     insert: vi.fn(() => ({ values: mockInsertValues })),
     delete: vi.fn(() => ({ where: mockDeleteWhere })),
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          limit: vi.fn(async () => selectRows.current),
+        })),
+      })),
+    })),
   }),
   schema: {
     deckShareLinks: {
@@ -59,7 +68,7 @@ vi.mock("./request-auth-context.js", () => ({
     mockWithSlidesRequestContext(...args),
 }));
 
-import { shareDeck } from "./share";
+import { getSharedDeck, shareDeck } from "./share";
 
 describe("shareDeck", () => {
   beforeEach(() => {
@@ -108,9 +117,10 @@ describe("shareDeck", () => {
     expect(insertedRows.current).toHaveLength(1);
 
     const row = insertedRows.current[0] as Record<string, unknown>;
-    const slides = JSON.parse(row.slides as string);
+    const envelope = JSON.parse(row.slides as string);
 
-    expect(slides).toEqual([
+    expect(envelope.kind).toBe("deck");
+    expect(envelope.slides).toEqual([
       {
         id: "slide-1",
         content: "<h1>Launch</h1>",
@@ -129,5 +139,106 @@ describe("shareDeck", () => {
         ],
       },
     ]);
+  });
+
+  it("stores the social kind and per-asset sizes in the snapshot envelope", async () => {
+    mockAssertAccess.mockResolvedValue({
+      resource: {
+        title: "Campaign assets",
+        data: JSON.stringify({
+          kind: "social",
+          slides: [
+            {
+              id: "asset-1",
+              content: "<div>Post</div>",
+              layout: "blank",
+              size: { width: 1080, height: 1350, preset: "ig-portrait" },
+            },
+            {
+              id: "asset-2",
+              content: "<div>Bad size dropped</div>",
+              layout: "blank",
+              size: { width: 10, height: 10 },
+            },
+          ],
+        }),
+      },
+    });
+
+    await shareDeck({} as any);
+
+    const row = insertedRows.current[0] as Record<string, unknown>;
+    const envelope = JSON.parse(row.slides as string);
+
+    expect(envelope.kind).toBe("social");
+    expect(envelope.slides[0].size).toEqual({
+      width: 1080,
+      height: 1350,
+      preset: "ig-portrait",
+    });
+    // Out-of-bounds dims are dropped so the share page falls back to the
+    // deck aspect ratio instead of rendering a broken canvas.
+    expect(envelope.slides[1].size).toBeUndefined();
+  });
+});
+
+describe("getSharedDeck", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    selectRows.current = [];
+    mockGetRouterParam.mockReturnValue("token-1");
+  });
+
+  it("reads legacy bare-array rows as deck snapshots", async () => {
+    selectRows.current = [
+      {
+        token: "token-1",
+        title: "Old deck",
+        slides: JSON.stringify([
+          { id: "slide-1", content: "hi", notes: "", layout: "content" },
+        ]),
+        aspectRatio: "16:9",
+        createdAt: new Date().toISOString(),
+      },
+    ];
+
+    const result = (await getSharedDeck({} as any)) as Record<string, unknown>;
+
+    expect(result.kind).toBe("deck");
+    expect(result.slides).toEqual([
+      { id: "slide-1", content: "hi", notes: "", layout: "content" },
+    ]);
+  });
+
+  it("reads envelope rows and surfaces the social kind", async () => {
+    selectRows.current = [
+      {
+        token: "token-1",
+        title: "Campaign",
+        slides: JSON.stringify({
+          kind: "social",
+          slides: [
+            {
+              id: "asset-1",
+              content: "post",
+              notes: "",
+              layout: "blank",
+              size: { width: 1080, height: 1920, preset: "ig-story" },
+            },
+          ],
+        }),
+        aspectRatio: null,
+        createdAt: new Date().toISOString(),
+      },
+    ];
+
+    const result = (await getSharedDeck({} as any)) as Record<string, unknown>;
+
+    expect(result.kind).toBe("social");
+    expect((result.slides as Array<{ size?: unknown }>)[0].size).toEqual({
+      width: 1080,
+      height: 1920,
+      preset: "ig-story",
+    });
   });
 });

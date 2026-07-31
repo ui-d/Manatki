@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router";
 
 import PresentationView from "@/components/presentation/PresentationView";
+import SharedAssetGallery from "@/components/presentation/SharedAssetGallery";
 import type { Slide } from "@/context/DeckContext";
 
 interface SharedPresentationProps {
@@ -81,6 +82,12 @@ export default function SharedPresentation({
     ...s,
     layout: s.layout as Slide["layout"],
   }));
+
+  // Social projects are mixed-canvas asset sets — a gallery, not a
+  // uniform-canvas presenter flow.
+  if (deck.kind === "social") {
+    return <SharedAssetGallery title={deck.title} slides={slides} />;
+  }
 
   // Use a fake deckId that routes "exit" back to the share page itself
   return (

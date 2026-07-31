@@ -10,7 +10,7 @@ import {
   enterTextEditing as coreEnterTextEditing,
   exitSelectionMode as coreExitSelectionMode,
 } from "@agent-native/core/client/host";
-import { useT } from "@agent-native/core/client/i18n";
+import { AgentNativeI18nProvider, useT } from "@agent-native/core/client/i18n";
 import { getLocaleInitScript } from "@agent-native/core/client/i18n";
 import {
   CommandMenu,
@@ -258,10 +258,19 @@ export default function Root() {
   const [queryClient] = useState(() => createAgentNativeQueryClient());
   const location = useLocation();
 
-  if (
-    BARE_PREFIXES.some((p) => location.pathname.startsWith(p)) ||
-    STANDALONE_ROUTES.has(location.pathname)
-  ) {
+  if (BARE_PREFIXES.some((p) => location.pathname.startsWith(p))) {
+    // Public share/presentation pages stay outside AppProviders (no session
+    // gate, no workspace runtime) but still need localized strings, so mount
+    // just the i18n provider. persistPreference stays off: there may be no
+    // session, and the preference PUT would 401-spam for anonymous viewers.
+    return (
+      <AgentNativeI18nProvider catalog={i18nCatalog} persistPreference={false}>
+        <Outlet />
+      </AgentNativeI18nProvider>
+    );
+  }
+
+  if (STANDALONE_ROUTES.has(location.pathname)) {
     return <Outlet />;
   }
 

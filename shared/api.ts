@@ -1,6 +1,7 @@
 /**
  * Shared types between client and server
  */
+import { isValidSlideDims } from "./slide-size.js";
 
 export interface DemoResponse {
   message: string;
@@ -75,6 +76,8 @@ export interface SharedDeckResponse {
   title: string;
   slides: SharedDeckSlide[];
   aspectRatio?: import("./aspect-ratios").AspectRatio;
+  /** Absent on snapshots created before social projects — treat as "deck". */
+  kind?: import("./slide-size").DeckKind;
 }
 
 export type SharedSlideTransition =
@@ -102,6 +105,8 @@ export interface SharedDeckSlide {
   transition?: SharedSlideTransition;
   animations?: SharedSlideAnimation[];
   splitByParagraph?: boolean;
+  /** Per-asset pixel canvas (social projects); overrides aspectRatio. */
+  size?: import("./slide-size").SlideSize;
 }
 
 const SHARED_SLIDE_TRANSITIONS = new Set<SharedSlideTransition>([
@@ -204,6 +209,19 @@ export function toSharedDeckSlide(
     shared.splitByParagraph = slide.splitByParagraph;
   }
 
+  if (
+    isRecord(slide.size) &&
+    isValidSlideDims(slide.size.width, slide.size.height)
+  ) {
+    shared.size = {
+      width: slide.size.width as number,
+      height: slide.size.height as number,
+      ...(typeof slide.size.preset === "string"
+        ? { preset: slide.size.preset }
+        : {}),
+    };
+  }
+
   if (Array.isArray(slide.animations)) {
     const animations = slide.animations
       .map((animation, animationIndex) =>
@@ -253,6 +271,7 @@ export interface DeckVersion extends DeckVersionSummary {
     notes?: string;
     layout?: string;
     background?: string;
+    size?: import("./slide-size").SlideSize;
   }>;
 }
 

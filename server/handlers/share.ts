@@ -77,11 +77,14 @@ async function createShareLink(event: any, deckId: string) {
   const slides = storedDeck.slides.map((slide: unknown, index: number) =>
     toSharedDeckSlide(slide, index),
   );
+  const kind = storedDeck.kind === "social" ? "social" : "deck";
 
   await db.insert(schema.deckShareLinks).values({
     token,
     title: title || storedDeck.title || "Untitled",
-    slides: JSON.stringify(slides),
+    // Envelope carries the project kind without a new column; the reader
+    // still accepts the legacy bare-array shape from pre-social snapshots.
+    slides: JSON.stringify({ kind, slides }),
     aspectRatio: storedDeck.aspectRatio ?? null,
     createdAt: now,
   });
@@ -131,10 +134,21 @@ export const getSharedDeck = defineEventHandler(async (event) => {
     return { error: "Shared presentation not found or has expired" };
   }
 
+  // Legacy rows store a bare slide array; newer rows wrap it in an
+  // envelope that also carries the project kind.
+  const parsed = JSON.parse(shared.slides);
+  const isEnvelope = !Array.isArray(parsed) && parsed && typeof parsed === "object";
+  const slides = isEnvelope
+    ? Array.isArray(parsed.slides)
+      ? parsed.slides
+      : []
+    : parsed;
+
   const response: SharedDeckResponse = {
     title: shared.title,
-    slides: JSON.parse(shared.slides),
+    slides,
     aspectRatio: shared.aspectRatio as SharedDeckResponse["aspectRatio"],
+    kind: isEnvelope && parsed.kind === "social" ? "social" : "deck",
   };
   return response;
 });
