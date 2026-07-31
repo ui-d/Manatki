@@ -75,6 +75,23 @@ export function notifyClients(
   }
 }
 
+/**
+ * How long a single SSE connection is allowed to live before the server
+ * closes it and lets the browser reconnect.
+ *
+ * Serverless hosts cap function duration (Vercel's default is 300s). An SSE
+ * handler holds the invocation open for as long as the client stays
+ * subscribed, so without this it always runs into that ceiling and the
+ * platform kills it — surfacing as a "Task timed out after 300 seconds"
+ * runtime error on every connection, roughly every five minutes per open tab.
+ *
+ * Retiring the stream ourselves, comfortably under the cap, turns those hard
+ * timeouts into clean EOFs. EventSource reconnects automatically on a clean
+ * close, and DeckContext's `onopen` resyncs deck state on every reconnect
+ * after the first, so no broadcast missed during the gap is lost.
+ */
+const SSE_MAX_CONNECTION_MS = 240_000;
+
 // SSE endpoint — client subscribes for real-time change notifications.
 // Per-deckId notifications carry only the id, no row contents, so we don't
 // gate this — but we do require an authenticated session so anonymous
@@ -97,7 +114,12 @@ export const deckEvents = defineEventHandler(async (event) => {
   };
   sseClients.add(push);
 
+  const retireTimer = setTimeout(() => {
+    void eventStream.close();
+  }, SSE_MAX_CONNECTION_MS);
+
   eventStream.onClosed(() => {
+    clearTimeout(retireTimer);
     sseClients.delete(push);
   });
 

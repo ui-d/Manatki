@@ -6,6 +6,7 @@ import {
   IconDots,
   IconTrash,
   IconCopy,
+  IconLayoutGrid,
   IconPencil,
   IconPalette,
   IconPlus,
@@ -23,6 +24,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import type { Deck } from "@/context/DeckContext";
+import { isSocialProject } from "@/lib/project-kind";
 
 import SlideRenderer from "./SlideRenderer";
 
@@ -53,6 +55,7 @@ export default function DeckCard({
 }: DeckCardProps) {
   const t = useT();
   const firstSlide = deck.slides?.[0];
+  const isSocial = isSocialProject(deck);
   const [isRenaming, setIsRenaming] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameValue, setRenameValue] = useState(deck.title);
@@ -143,8 +146,17 @@ export default function DeckCard({
           </div>
           <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
             <span className="shrink-0 whitespace-nowrap">
-              {deck.slides.length} slide{deck.slides.length !== 1 ? "s" : ""}
+              {deck.slides.length}{" "}
+              {isSocial
+                ? t("home.assetCount", { count: deck.slides.length })
+                : t("home.slideCount", { count: deck.slides.length })}
             </span>
+            {isSocial && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-[#EC4899]/40 px-1.5 py-0.5 text-[10px] text-[#EC4899]">
+                <IconLayoutGrid className="h-3 w-3 shrink-0" />
+                {t("home.socialBadge")}
+              </span>
+            )}
             {isWorkspaceDefault && (
               <span className="inline-flex shrink-0 items-center gap-1 rounded border border-[#609FF8]/40 px-1.5 py-0.5 text-[10px] text-[#609FF8]">
                 <IconBuildingCommunity className="h-3 w-3 shrink-0" />

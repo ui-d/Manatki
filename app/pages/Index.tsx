@@ -9,7 +9,10 @@ import {
 import { extractGoogleDocUrls } from "@shared/google-docs";
 import {
   IconAlertTriangle,
+  IconChevronDown,
+  IconLayoutGrid,
   IconPlus,
+  IconPresentation,
   IconRefresh,
   IconStack2,
   IconUserCircle,
@@ -35,6 +38,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Select,
   SelectContent,
   SelectGroup,
@@ -52,10 +61,39 @@ import { useDesignSystems } from "@/hooks/use-design-systems";
 import { useWorkspaceDefaults } from "@/hooks/use-workspace-defaults";
 import { createDeckAgentMessage } from "@/lib/agent-visible-message";
 import { savePromptToComposerDraft } from "@/lib/composer-draft";
+import { projectKindOf } from "@/lib/project-kind";
 import { cn } from "@/lib/utils";
 
 const NEW_DECK_DRAFT_SCOPE = "slides-new-deck";
 const PENDING_PROMPT_KEY = "slides:pending-deck-prompt";
+
+/**
+ * The two project kinds, as offered at every creation entry point (header
+ * menu and the grid's placeholder cards). Kept in one table so the menu and
+ * the cards can never drift apart.
+ */
+const NEW_PROJECT_OPTIONS = [
+  {
+    kind: "deck" as const,
+    Icon: IconPresentation,
+    labelKey: "home.projectTypeDeck",
+    hintKey: "home.newProjectDeckHint",
+    cardTitleKey: "home.newDeckCardTitle",
+  },
+  {
+    kind: "social" as const,
+    Icon: IconLayoutGrid,
+    labelKey: "home.projectTypeSocial",
+    hintKey: "home.newProjectSocialHint",
+    cardTitleKey: "home.newSocialCardTitle",
+  },
+] satisfies ReadonlyArray<{
+  kind: DeckKind;
+  Icon: typeof IconPresentation;
+  labelKey: string;
+  hintKey: string;
+  cardTitleKey: string;
+}>;
 
 function savePromptForRetry(
   prompt: string,
@@ -243,6 +281,9 @@ export default function Index() {
   const { generating, submit: agentSubmit } = useAgentGenerating();
   const anchorElRef = useRef<HTMLElement | null>(null);
   const anchorRef = useRef<HTMLElement | null>(null);
+  const newProjectTriggerRef = useRef<HTMLButtonElement | null>(null);
+  // Set on menu select, consumed on menu close — see the header menu below.
+  const pendingProjectKindRef = useRef<DeckKind | null>(null);
   // Keep anchorRef.current in sync so PromptPopover can read it
   anchorRef.current = anchorElRef.current;
   const designSystemTitleById = useMemo<Map<string, string>>(
@@ -279,10 +320,32 @@ export default function Index() {
     defaultSystem?.id ??
     null;
   const deckFilter = searchParams.get("createdBy") === "me" ? "mine" : "all";
-  const visibleDecks = useMemo(
-    () =>
-      deckFilter === "mine" ? decks.filter((deck) => deck.createdByMe) : decks,
-    [deckFilter, decks],
+  const kindParam = searchParams.get("kind");
+  const kindFilter: DeckKind | "all" =
+    kindParam === "deck" || kindParam === "social" ? kindParam : "all";
+  const visibleDecks = useMemo(() => {
+    const byOwner =
+      deckFilter === "mine" ? decks.filter((deck) => deck.createdByMe) : decks;
+    return kindFilter === "all"
+      ? byOwner
+      : byOwner.filter((deck) => projectKindOf(deck) === kindFilter);
+  }, [deckFilter, kindFilter, decks]);
+  const setKindFilter = useCallback(
+    (value: string) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (value === "deck" || value === "social") {
+            next.set("kind", value);
+          } else {
+            next.delete("kind");
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
   );
   const setDeckFilter = useCallback(
     (value: string) => {
@@ -303,12 +366,20 @@ export default function Index() {
     [setSearchParams],
   );
 
-  const openNewDeck = useCallback(
-    (e: React.MouseEvent<HTMLElement>) => {
-      anchorElRef.current = e.currentTarget;
+  /**
+   * Open the new-project composer for a specific kind.
+   *
+   * The kind is chosen at the entry point (header menu, grid card) rather than
+   * discovered inside the popover, so the composer opens already framed as a
+   * presentation or as social assets. The toggle inside the popover stays as
+   * the escape hatch for changing your mind without reopening.
+   */
+  const openNewProject = useCallback(
+    (anchor: HTMLElement | null, kind: DeckKind) => {
+      anchorElRef.current = anchor;
       designSystemAutoRef.current = true;
       referenceDeckAutoRef.current = true;
-      setNewProjectKind("deck");
+      setNewProjectKind(kind);
       setSelectedDesignSystemId(initialDesignSystemId ?? "");
       setSelectedReferenceDeckId(workspaceReferenceDeckId ?? "none");
       setShowNewDeckPrompt(true);
@@ -730,19 +801,60 @@ export default function Index() {
 
   useSetPageTitle(t("home.decksTitle"));
 
-  // Inject "New Deck" into the global header actions slot.
+  // Inject the "New" split menu into the global header actions slot.
   useSetHeaderActions(
     useMemo(
       () => (
         <div className="flex items-center gap-2">
           <ImportImagesDeckButton />
-          <Button onClick={openNewDeck} size="sm" className="cursor-pointer">
-            <IconPlus className="w-3.5 h-3.5" />
-            {t("home.newDeck")}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                ref={newProjectTriggerRef}
+                size="sm"
+                className="cursor-pointer"
+              >
+                <IconPlus className="w-3.5 h-3.5" />
+                {t("home.newProject")}
+                <IconChevronDown className="w-3.5 h-3.5 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-60"
+              // Radix restores focus to the trigger as it closes, which would
+              // pull focus straight back out of the composer we are about to
+              // open. Defer the open to here and keep the focus restore off.
+              onCloseAutoFocus={(e) => {
+                const kind = pendingProjectKindRef.current;
+                if (!kind) return;
+                e.preventDefault();
+                pendingProjectKindRef.current = null;
+                openNewProject(newProjectTriggerRef.current, kind);
+              }}
+            >
+              {NEW_PROJECT_OPTIONS.map(({ kind, Icon, labelKey, hintKey }) => (
+                <DropdownMenuItem
+                  key={kind}
+                  className="gap-2.5 py-2"
+                  onSelect={() => {
+                    pendingProjectKindRef.current = kind;
+                  }}
+                >
+                  <Icon className="h-4 w-4 shrink-0 text-[#609FF8]" />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="text-sm leading-none">{t(labelKey)}</span>
+                    <span className="text-[11px] leading-none text-muted-foreground">
+                      {t(hintKey)}
+                    </span>
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
-      [openNewDeck, t],
+      [openNewProject, t],
     ),
   );
 
@@ -791,65 +903,109 @@ export default function Index() {
           </div>
         </div>
       ) : decks.length === 0 ? (
-        <EmptyState onCreateDeck={openNewDeck} />
+        <EmptyState onCreateProject={openNewProject} />
       ) : (
         <>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <ToggleGroup
-              type="single"
-              value={deckFilter}
-              onValueChange={(value) => value && setDeckFilter(value)}
-              className="w-fit rounded-lg border border-border bg-card p-0.5"
-              size="sm"
-            >
-              <ToggleGroupItem
-                value="all"
-                aria-label={t("home.showAllDecks")}
-                className="h-7 rounded-md px-3 text-xs data-[state=on]:bg-accent"
+            <div className="flex flex-wrap items-center gap-2">
+              <ToggleGroup
+                type="single"
+                value={deckFilter}
+                onValueChange={(value) => value && setDeckFilter(value)}
+                className="w-fit rounded-lg border border-border bg-card p-0.5"
+                size="sm"
               >
-                <IconStack2 className="me-1.5 h-3.5 w-3.5" />
-                {t("home.all")}
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="mine"
-                aria-label={t("home.showMineDecks")}
-                className="h-7 rounded-md px-3 text-xs data-[state=on]:bg-accent"
+                <ToggleGroupItem
+                  value="all"
+                  aria-label={t("home.showAllDecks")}
+                  className="h-7 rounded-md px-3 text-xs data-[state=on]:bg-accent"
+                >
+                  <IconStack2 className="me-1.5 h-3.5 w-3.5" />
+                  {t("home.all")}
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="mine"
+                  aria-label={t("home.showMineDecks")}
+                  className="h-7 rounded-md px-3 text-xs data-[state=on]:bg-accent"
+                >
+                  <IconUserCircle className="me-1.5 h-3.5 w-3.5" />
+                  {t("home.mine")}
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <ToggleGroup
+                type="single"
+                value={kindFilter}
+                onValueChange={(value) => value && setKindFilter(value)}
+                className="w-fit rounded-lg border border-border bg-card p-0.5"
+                size="sm"
               >
-                <IconUserCircle className="me-1.5 h-3.5 w-3.5" />
-                {t("home.mine")}
-              </ToggleGroupItem>
-            </ToggleGroup>
+                <ToggleGroupItem
+                  value="all"
+                  aria-label={t("home.showAllKinds")}
+                  className="h-7 rounded-md px-3 text-xs data-[state=on]:bg-accent"
+                >
+                  {t("home.all")}
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="deck"
+                  aria-label={t("home.showDecksOnly")}
+                  className="h-7 rounded-md px-3 text-xs data-[state=on]:bg-accent"
+                >
+                  <IconPresentation className="me-1.5 h-3.5 w-3.5" />
+                  {t("home.kindFilterDecks")}
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="social"
+                  aria-label={t("home.showSocialOnly")}
+                  className="h-7 rounded-md px-3 text-xs data-[state=on]:bg-accent"
+                >
+                  <IconLayoutGrid className="me-1.5 h-3.5 w-3.5" />
+                  {t("home.kindFilterSocial")}
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
             <span className="text-xs text-muted-foreground/70">
-              {deckFilter === "mine"
+              {visibleDecks.length < decks.length
                 ? `${visibleDecks.length} of ${decks.length}`
                 : decks.length}{" "}
-              {t("home.deckCount", {
-                count:
-                  deckFilter === "mine" ? visibleDecks.length : decks.length,
-              })}
+              {/* "1 of 2 decks" — the noun agrees with the total, not the
+                  filtered subset, so pluralize on what the number ends on. */}
+              {t("home.deckCount", { count: decks.length })}
             </span>
           </div>
           <div className="deck-grid-container">
-            <div className="deck-grid grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {/* New deck card */}
-              <button
-                onClick={openNewDeck}
-                className="group relative cursor-pointer overflow-hidden rounded-xl border border-dashed border-border bg-card text-start hover:border-foreground/15"
-              >
-                <div className="flex aspect-video items-center justify-center bg-muted/30">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/50 group-hover:bg-accent">
-                    <IconPlus className="h-6 w-6 text-muted-foreground/70 group-hover:text-muted-foreground" />
+            {/* `items-start` keeps every card at its natural height. Social
+                projects have tall (1:1, 4:5, 9:16) thumbnails, and the default
+                stretch would blow every other card in the row up to match the
+                tallest one beside it. */}
+            <div className="deck-grid grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {/* One placeholder card per project kind. Both are hidden while
+                  a kind filter is active except the one being filtered to, so
+                  the grid never offers to create something the current view
+                  would immediately hide. */}
+              {NEW_PROJECT_OPTIONS.filter(
+                ({ kind }) => kindFilter === "all" || kindFilter === kind,
+              ).map(({ kind, Icon, cardTitleKey, hintKey }) => (
+                <button
+                  key={kind}
+                  onClick={(e) => openNewProject(e.currentTarget, kind)}
+                  className="group relative cursor-pointer overflow-hidden rounded-xl border border-dashed border-border bg-card text-start hover:border-foreground/15"
+                >
+                  <div className="flex aspect-video items-center justify-center bg-muted/30">
+                    <div className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-accent/50 group-hover:bg-accent">
+                      <Icon className="h-6 w-6 text-muted-foreground/70 group-hover:text-muted-foreground" />
+                    </div>
                   </div>
-                </div>
-                <div className="p-4">
-                  <h3 className="text-sm font-medium text-muted-foreground group-hover:text-foreground/70">
-                    {t("home.newDeck")}
-                  </h3>
-                  <div className="mt-1 text-xs text-muted-foreground/70">
-                    {t("home.createDeckOrVisual")}
+                  <div className="p-4">
+                    <h3 className="text-sm font-medium text-muted-foreground group-hover:text-foreground/70">
+                      {t(cardTitleKey)}
+                    </h3>
+                    <div className="mt-1 text-xs text-muted-foreground/70">
+                      {t(hintKey)}
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+              ))}
 
               {[...visibleDecks].reverse().map((deck) => (
                 <DeckCard
@@ -872,7 +1028,9 @@ export default function Index() {
               ))}
               {visibleDecks.length === 0 && (
                 <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
-                  {t("home.noMineDecks")}
+                  {kindFilter === "all"
+                    ? t("home.noMineDecks")
+                    : t("home.noKindMatches")}
                 </div>
               )}
             </div>
@@ -931,8 +1089,16 @@ export default function Index() {
       <PromptPopover
         open={showNewDeckPrompt}
         onOpenChange={setNewDeckPromptOpen}
-        title={t("home.newDeckPromptTitle")}
-        placeholder={t("home.newDeckPlaceholder")}
+        title={
+          newProjectKind === "social"
+            ? t("home.newDeckPromptTitleSocial")
+            : t("home.newDeckPromptTitle")
+        }
+        placeholder={
+          newProjectKind === "social"
+            ? t("home.newDeckPlaceholderSocial")
+            : t("home.newDeckPlaceholder")
+        }
         onSkip={handleCreateDeckBlank}
         skipLabel={t("home.skipPrompt")}
         onSubmit={handleCreateDeckWithPrompt}
@@ -1096,9 +1262,9 @@ export default function Index() {
 }
 
 function EmptyState({
-  onCreateDeck,
+  onCreateProject,
 }: {
-  onCreateDeck: (e: React.MouseEvent<HTMLElement>) => void;
+  onCreateProject: (anchor: HTMLElement | null, kind: DeckKind) => void;
 }) {
   const t = useT();
   return (
@@ -1112,14 +1278,22 @@ function EmptyState({
       <p className="text-sm text-muted-foreground max-w-sm mb-8 leading-relaxed">
         {t("home.emptyDescription")}
       </p>
-      <Button
-        onClick={(e: React.MouseEvent<HTMLButtonElement>) =>
-          onCreateDeck(e as React.MouseEvent<HTMLElement>)
-        }
-      >
-        <IconPlus className="w-4 h-4" />
-        {t("home.newDeck")}
-      </Button>
+      {/* Both kinds are offered here too — a first-run workspace is exactly
+          where "this app also makes social assets" is worth surfacing. */}
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {NEW_PROJECT_OPTIONS.map(({ kind, Icon, labelKey }, index) => (
+          <Button
+            key={kind}
+            variant={index === 0 ? "default" : "outline"}
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) =>
+              onCreateProject(e.currentTarget, kind)
+            }
+          >
+            <Icon className="w-4 h-4" />
+            {t(labelKey)}
+          </Button>
+        ))}
+      </div>
     </div>
   );
 }
