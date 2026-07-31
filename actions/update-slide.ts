@@ -16,8 +16,14 @@ import { normalizeSlidePadding } from "../app/lib/normalize-slide-padding.js";
 import { getDb, schema } from "../server/db/index.js"; // ensure registerShareableResource runs
 import { notifyClients } from "../server/handlers/decks.js";
 import { createDeckVersionSnapshot } from "../server/lib/deck-versions.js";
+import { MAX_SLIDE_CONTENT_INPUT_CHARS } from "../shared/slide-content-limits.js";
 import { MAX_SLIDE_DIM, MIN_SLIDE_DIM, SIZE_PRESET_VALUES } from "../shared/slide-size.js";
 import { slideLabelFor, touchAgentSlidePresence } from "./_agent-presence.js";
+import {
+  assertSlideContentWithinCap,
+  prepareSlideContentForPersist,
+  rewriteInlineImagesToHostedUrls,
+} from "./_slide-content.js";
 import {
   awaitLayoutFitCheck,
   formatOverflowForTool,
@@ -111,6 +117,7 @@ export default defineAction({
       .describe("Replacement text (default: empty string)"),
     fullContent: z
       .string()
+      .max(MAX_SLIDE_CONTENT_INPUT_CHARS)
       .optional()
       .describe("Full HTML to replace entire slide content"),
     sizePreset: z
@@ -180,6 +187,16 @@ export default defineAction({
 
     await assertAccess("deck", deckId, "editor");
 
+    // Inline-image rewrite (H1) on the incoming HTML, before the lock so
+    // uploads never serialize behind other writers. The merged slide content
+    // is cap-checked again inside the lock (a find/replace can grow it).
+    const preparedFullContent = fullContent
+      ? await prepareSlideContentForPersist(fullContent)
+      : fullContent;
+    const preparedReplace = replace
+      ? await rewriteInlineImagesToHostedUrls(replace)
+      : replace;
+
     // ─── Read-modify-write under the shared per-deck lock ───────────────────
     //
     // Previously this action read the deck, edited a slide in memory, and wrote
@@ -247,8 +264,8 @@ export default defineAction({
       let applied = false;
       let notFound = false;
 
-      if (fullContent) {
-        slide.content = normalizeSlidePadding(fullContent);
+      if (preparedFullContent) {
+        slide.content = normalizeSlidePadding(preparedFullContent);
         applied = true;
       } else if (find) {
         const idx = (slide.content as string).indexOf(find);
@@ -257,8 +274,11 @@ export default defineAction({
         } else {
           slide.content =
             slide.content.slice(0, idx) +
-            (replace ?? "") +
+            (preparedReplace ?? "") +
             slide.content.slice(idx + find.length);
+          // A replace can grow the merged content past the persist cap even
+          // when each input was individually fine.
+          assertSlideContentWithinCap(slide.content);
           applied = true;
         }
       }

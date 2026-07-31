@@ -29,6 +29,17 @@ import { getDb, schema } from "../server/db/index.js";
 import { notifyClients } from "../server/handlers/decks.js";
 import { createDeckVersionSnapshot } from "../server/lib/deck-versions.js";
 import { ASPECT_RATIO_VALUES } from "../shared/aspect-ratios.js";
+import {
+  MAX_DECK_TITLE_CHARS,
+  MAX_SLIDE_ANIMATIONS,
+  MAX_SLIDE_BACKGROUND_CHARS,
+  MAX_SLIDE_CONTENT_INPUT_CHARS,
+  MAX_SLIDE_EXCALIDRAW_CHARS,
+  MAX_SLIDE_IMAGE_PROMPT_CHARS,
+  MAX_SLIDE_IMAGE_URL_CHARS,
+  MAX_SLIDE_NOTES_CHARS,
+  MAX_SLIDE_SCREENSHOTS,
+} from "../shared/slide-content-limits.js";
 import { DECK_KIND_VALUES } from "../shared/slide-size.js";
 import {
   casUpdateDeck,
@@ -36,6 +47,7 @@ import {
   retryDeckWrite,
   SlideSizeSchema,
 } from "./_deck-write.js";
+import { prepareSlideContentForPersist } from "./_slide-content.js";
 
 // ---------------------------------------------------------------------------
 // Per-deck write lock — same pattern as add-slide.ts so all client and agent
@@ -70,19 +82,25 @@ export function withDeckLock<T>(
 // Operation schemas
 // ---------------------------------------------------------------------------
 
+// Size caps (H1): SQL blob rows must stay bounded. Content gets a generous
+// input cap because inline images are rewritten to hosted URLs before the
+// (much smaller) persist cap applies — see _slide-content.ts.
 const SlideFieldsSchema = z.object({
-  content: z.string().optional(),
-  notes: z.string().optional(),
-  background: z.string().optional(),
-  layout: z.string().optional(),
-  imageUrl: z.string().optional(),
+  content: z.string().max(MAX_SLIDE_CONTENT_INPUT_CHARS).optional(),
+  notes: z.string().max(MAX_SLIDE_NOTES_CHARS).optional(),
+  background: z.string().max(MAX_SLIDE_BACKGROUND_CHARS).optional(),
+  layout: z.string().max(100).optional(),
+  imageUrl: z.string().max(MAX_SLIDE_IMAGE_URL_CHARS).optional(),
   imageLoading: z.boolean().optional(),
-  imagePrompt: z.string().optional(),
-  excalidrawData: z.string().optional(),
-  transition: z.string().optional(),
-  animations: z.array(z.unknown()).optional(),
+  imagePrompt: z.string().max(MAX_SLIDE_IMAGE_PROMPT_CHARS).optional(),
+  excalidrawData: z.string().max(MAX_SLIDE_EXCALIDRAW_CHARS).optional(),
+  transition: z.string().max(50).optional(),
+  animations: z.array(z.unknown()).max(MAX_SLIDE_ANIMATIONS).optional(),
   kind: z.enum(["html", "image"]).optional(),
-  screenshots: z.array(z.string()).optional(),
+  screenshots: z
+    .array(z.string().max(MAX_SLIDE_IMAGE_URL_CHARS))
+    .max(MAX_SLIDE_SCREENSHOTS)
+    .optional(),
   size: SlideSizeSchema.nullable().optional(),
 });
 
@@ -110,40 +128,41 @@ const ReorderSlidesOp = z.object({
   orderedIds: z.array(z.string()),
 });
 
-/** Add a new slide. slideId must be provided by the client. */
+/** Add a new slide. slideId must be provided by the client. Unknown keys are
+ * stripped (default zod behavior) — applyOperation only ever persisted the
+ * listed fields, so the old `.passthrough()` bought nothing but a wider
+ * attack surface at the validation layer. */
 const AddSlideOp = z.object({
   op: z.literal("add-slide"),
   slideId: z.string(),
   afterSlideId: z.string().optional(), // insert after this slide; append if absent
-  fields: z
-    .object({
-      content: z.string(),
-      notes: z.string().optional(),
-      layout: z.string().optional(),
-      background: z.string().optional(),
-      size: SlideSizeSchema.optional(),
-    })
-    .passthrough(),
+  fields: z.object({
+    content: z.string().max(MAX_SLIDE_CONTENT_INPUT_CHARS),
+    notes: z.string().max(MAX_SLIDE_NOTES_CHARS).optional(),
+    layout: z.string().max(100).optional(),
+    background: z.string().max(MAX_SLIDE_BACKGROUND_CHARS).optional(),
+    size: SlideSizeSchema.optional(),
+  }),
 });
 
-/** Update top-level deck fields (title, designSystemId, tweaks, etc.) */
+/** Update top-level deck fields (title, designSystemId, tweaks, etc.).
+ * `visibility` and `shareToken` are intentionally absent: both were dead
+ * writes into the blob (visibility is served from the SQL column, share
+ * tokens from deck_share_links). Unknown keys — including those two from
+ * older clients — are stripped, not errored. */
 const PatchDeckFieldsOp = z.object({
   op: z.literal("patch-deck-fields"),
-  fields: z
-    .object({
-      title: z.string().optional(),
-      designSystemId: z.string().nullable().optional(),
-      tweaks: z
-        .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
-        .optional(),
-      aspectRatio: z.enum(ASPECT_RATIO_VALUES).optional(),
-      kind: z.enum(DECK_KIND_VALUES).optional(),
-      defaultSize: SlideSizeSchema.optional(),
-      shareToken: z.string().optional(),
-      visibility: z.enum(["private", "org", "public"]).optional(),
-      starred: z.boolean().optional(),
-    })
-    .passthrough(),
+  fields: z.object({
+    title: z.string().max(MAX_DECK_TITLE_CHARS).optional(),
+    designSystemId: z.string().nullable().optional(),
+    tweaks: z
+      .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+      .optional(),
+    aspectRatio: z.enum(ASPECT_RATIO_VALUES).optional(),
+    kind: z.enum(DECK_KIND_VALUES).optional(),
+    defaultSize: SlideSizeSchema.optional(),
+    starred: z.boolean().optional(),
+  }),
 });
 
 export const OperationSchema = z.discriminatedUnion("op", [
@@ -312,8 +331,6 @@ export function applyOperation(deck: any, op: Operation): void {
       if (fields.kind !== undefined) deck.kind = fields.kind;
       if (fields.defaultSize !== undefined)
         deck.defaultSize = fields.defaultSize;
-      if (fields.shareToken !== undefined) deck.shareToken = fields.shareToken;
-      if (fields.visibility !== undefined) deck.visibility = fields.visibility;
       if (fields.starred !== undefined) deck.starred = fields.starred;
       break;
     }
@@ -375,6 +392,19 @@ export default defineAction({
   }),
   run: async ({ deckId, operations, creativeContext }) => {
     await assertAccess("deck", deckId, "editor");
+
+    // Inline-image rewrite + persist byte cap (H1), BEFORE taking the deck
+    // lock so slow uploads never serialize behind other writers.
+    for (const op of operations) {
+      if (
+        (op.op === "patch-slide" || op.op === "add-slide") &&
+        typeof op.fields.content === "string"
+      ) {
+        op.fields.content = await prepareSlideContentForPersist(
+          op.fields.content,
+        );
+      }
+    }
 
     return withDeckLock(deckId, () =>
       retryDeckWrite(deckId, async () => {

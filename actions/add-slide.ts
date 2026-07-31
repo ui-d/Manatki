@@ -18,6 +18,10 @@ import { getDb, schema } from "../server/db/index.js";
 import { notifyClients } from "../server/handlers/decks.js";
 import { createDeckVersionSnapshot } from "../server/lib/deck-versions.js";
 import {
+  MAX_SLIDE_CONTENT_INPUT_CHARS,
+  MAX_SLIDE_NOTES_CHARS,
+} from "../shared/slide-content-limits.js";
+import {
   MAX_SLIDE_DIM,
   MIN_SLIDE_DIM,
   SIZE_PRESET_VALUES,
@@ -30,6 +34,7 @@ import {
   retryDeckWrite,
 } from "./_deck-write.js";
 import { slideLabelFor, touchAgentSlidePresence } from "./_agent-presence.js";
+import { prepareSlideContentForPersist } from "./_slide-content.js";
 import {
   awaitLayoutFitCheck,
   formatOverflowForTool,
@@ -115,7 +120,10 @@ export default defineAction({
     "Returns the new slide ID, 1-based slideNumber, and updated slide count.",
   schema: z.object({
     deckId: z.string().describe("Target deck ID"),
-    content: z.string().describe("Full HTML content of the new slide"),
+    content: z
+      .string()
+      .max(MAX_SLIDE_CONTENT_INPUT_CHARS)
+      .describe("Full HTML content of the new slide"),
     slideId: z
       .string()
       .optional()
@@ -135,7 +143,11 @@ export default defineAction({
       ])
       .optional()
       .describe("Layout type hint"),
-    notes: z.string().optional().describe("Speaker notes for this slide"),
+    notes: z
+      .string()
+      .max(MAX_SLIDE_NOTES_CHARS)
+      .optional()
+      .describe("Speaker notes for this slide"),
     sizePreset: z
       .enum(SIZE_PRESET_VALUES)
       .optional()
@@ -199,7 +211,7 @@ export default defineAction({
   http: false,
   run: async ({
     deckId,
-    content,
+    content: rawContent,
     slideId,
     layout,
     notes,
@@ -210,10 +222,13 @@ export default defineAction({
     contextPackId,
     contextModeOverride,
     reuseLabels,
-  }) =>
-    withDeckLock(deckId, () =>
+  }) => {
+    await assertAccess("deck", deckId, "editor");
+    // Inline-image rewrite + persist byte cap (H1) before taking the lock,
+    // so uploads never serialize behind other writers.
+    const content = await prepareSlideContentForPersist(rawContent);
+    return withDeckLock(deckId, () =>
     retryDeckWrite(deckId, async () => {
-      await assertAccess("deck", deckId, "editor");
       const db = getDb();
 
       const rows = await db
@@ -464,7 +479,8 @@ export default defineAction({
       }
 
       return base;
-    })),
+    }));
+  },
   link: ({ result, args }) => {
     const deckId =
       result && typeof result === "object"

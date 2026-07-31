@@ -19,6 +19,10 @@ import { getDb, schema } from "../server/db/index.js";
 import { notifyClients } from "../server/handlers/decks.js";
 import { createDeckVersionSnapshot } from "../server/lib/deck-versions.js";
 import {
+  MAX_DECK_PAYLOAD_BYTES,
+  utf8ByteLength,
+} from "../shared/slide-content-limits.js";
+import {
   assertDesignSystemReadable,
   assertValidAspectRatio,
   assertValidKind,
@@ -31,6 +35,7 @@ import {
   type DeckPayload,
 } from "./_deck-write.js";
 import { withDeckLock } from "./patch-deck.js";
+import { prepareSlideContentForPersist } from "./_slide-content.js";
 
 function comparableDeckData(raw: unknown): string {
   try {
@@ -63,8 +68,28 @@ export default defineAction({
   }),
   http: { method: "PUT" },
   agentTool: false,
-  run: async (args) =>
-    withDeckLock(args.deckId, () =>
+  run: async (args) => {
+    // Blob-write hygiene (H1) before the lock: rewrite inline images in every
+    // slide, then bound the whole payload. Full-JSON writes are the widest
+    // funnel into decks.data, so they get the same caps as granular patches.
+    const payloadSlides = (args.deck as DeckPayload).slides;
+    if (Array.isArray(payloadSlides)) {
+      for (const slide of payloadSlides as Array<{ content?: unknown }>) {
+        if (typeof slide?.content === "string") {
+          slide.content = await prepareSlideContentForPersist(slide.content);
+        }
+      }
+    }
+    const payloadBytes = utf8ByteLength(JSON.stringify(args.deck));
+    if (payloadBytes > MAX_DECK_PAYLOAD_BYTES) {
+      throw deckHttpError(
+        413,
+        `Deck payload is ${Math.round(payloadBytes / 1024)} KB — the limit is ` +
+          `${Math.round(MAX_DECK_PAYLOAD_BYTES / 1024)} KB`,
+      );
+    }
+
+    return withDeckLock(args.deckId, () =>
     retryDeckWrite(args.deckId, async () => {
       const deckId = args.deckId;
       const deck = args.deck as DeckPayload;
@@ -141,5 +166,6 @@ export default defineAction({
 
       notifyClients(deckId);
       return deck;
-    })),
+    }));
+  },
 });

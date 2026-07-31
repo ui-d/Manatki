@@ -1388,12 +1388,18 @@ export function DeckProvider({ children }: { children: ReactNode }) {
   const resyncDeckState = useCallback(async () => {
     try {
       await refetchDeckListIfChanged();
-    } catch {}
+    } catch (err) {
+      // Resync failure means changes made while disconnected stay invisible
+      // until the next poll — worth a trace when debugging "missing slides".
+      console.warn("[deck-sync] list resync failed:", err);
+    }
     const currentOpenId = currentOpenDeckIdFromWindow();
     if (!currentOpenId) return;
     try {
       await refetchOpenDeckIfChanged(currentOpenId);
-    } catch {}
+    } catch (err) {
+      console.warn("[deck-sync] open-deck resync failed:", err);
+    }
   }, [refetchDeckListIfChanged, refetchOpenDeckIfChanged]);
 
   const resetDeckBaseline = useCallback(
@@ -1534,9 +1540,13 @@ export function DeckProvider({ children }: { children: ReactNode }) {
         if (currentOpenId) {
           try {
             await refetchOpenDeckIfChanged(currentOpenId);
-          } catch {}
+          } catch (err) {
+            console.warn("[deck-sync] poll open-deck refetch failed:", err);
+          }
         }
-      } catch {}
+      } catch (err) {
+        console.warn("[deck-sync] poll cycle failed:", err);
+      }
       schedule();
     }
 
@@ -1661,7 +1671,11 @@ export function DeckProvider({ children }: { children: ReactNode }) {
           lastExternalUpdateRef.current = Date.now(); // Suppress save-back
           applyRemoteDeckUpdate(updated);
         }
-      } catch {}
+      } catch (err) {
+        // A dropped SSE event application means this tab renders stale slides
+        // until the next poll — the most common "agent edit didn't show up".
+        console.warn("[deck-sync] SSE event handling failed:", err);
+      }
     };
 
     const connect = () => {
