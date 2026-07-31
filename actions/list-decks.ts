@@ -23,6 +23,15 @@ export default defineAction({
       .enum(["true", "false"])
       .optional()
       .describe("Set to 'true' for full frontend deck payloads"),
+    firstSlideOnly: z
+      .enum(["true", "false"])
+      .optional()
+      .describe(
+        "Set to 'true' for frontend deck payloads that carry only the first " +
+          "slide of each deck (plus slideCount). The library grid renders " +
+          "only slides[0], so this avoids downloading every deck's full " +
+          "slide JSON on initial load.",
+      ),
     light: z
       .enum(["true", "false"])
       .optional()
@@ -46,7 +55,7 @@ export default defineAction({
     const db = getDb();
     const ownerEmail = getRequestUserEmail();
     if (
-      args.includeSlides === "true" &&
+      (args.includeSlides === "true" || args.firstSlideOnly === "true") &&
       ctx?.caller === "frontend" &&
       !ownerEmail
     ) {
@@ -97,7 +106,9 @@ export default defineAction({
     const items = rows.map((row) => {
       const data = JSON.parse(row.data);
       const slides = data?.slides;
-      if (args.includeSlides === "true") {
+      if (args.includeSlides === "true" || args.firstSlideOnly === "true") {
+        const allSlides = Array.isArray(slides) ? slides : [];
+        const truncate = args.firstSlideOnly === "true" && allSlides.length > 1;
         return {
           ...data,
           id: row.id,
@@ -108,7 +119,12 @@ export default defineAction({
           createdAt:
             typeof data.createdAt === "string" ? data.createdAt : row.createdAt,
           updatedAt: row.updatedAt,
-          slides: Array.isArray(slides) ? slides : [],
+          previewUrl: row.previewUrl ?? null,
+          slides: truncate ? allSlides.slice(0, 1) : allSlides,
+          slideCount: allSlides.length,
+          // Marks a payload whose slides were truncated to the first slide;
+          // the client must full-fetch (get-deck) before editing/presenting.
+          ...(truncate ? { partialSlides: true } : {}),
         };
       }
 

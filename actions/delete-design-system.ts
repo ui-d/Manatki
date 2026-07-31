@@ -8,6 +8,7 @@ import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb, schema } from "../server/db/index.js";
+import { casUpdateDeck, deckRevOf, retryDeckWrite } from "./_deck-write.js";
 import { withDeckLock } from "./patch-deck.js";
 
 function canEditDeckRole(role: "owner" | ShareRole) {
@@ -28,36 +29,36 @@ function unlinkDeck(
   deckId: string,
   designSystemId: string,
 ): Promise<UnlinkResult> {
-  return withDeckLock(deckId, async () => {
-    const access = await resolveAccess("deck", deckId);
-    if (!access || !canEditDeckRole(access.role)) {
-      return { deckId, status: "skipped-no-access" };
-    }
+  return withDeckLock(deckId, () =>
+    retryDeckWrite(deckId, async () => {
+      const access = await resolveAccess("deck", deckId);
+      if (!access || !canEditDeckRole(access.role)) {
+        return { deckId, status: "skipped-no-access" };
+      }
 
-    const db = getDb();
-    const [deck] = await db
-      .select({
-        designSystemId: schema.decks.designSystemId,
-        data: schema.decks.data,
-      })
-      .from(schema.decks)
-      .where(eq(schema.decks.id, deckId));
-    if (!deck || deck.designSystemId !== designSystemId) {
-      return { deckId, status: "unlinked" };
-    }
+      const db = getDb();
+      const [deck] = await db
+        .select({
+          designSystemId: schema.decks.designSystemId,
+          data: schema.decks.data,
+          rev: schema.decks.rev,
+        })
+        .from(schema.decks)
+        .where(eq(schema.decks.id, deckId));
+      if (!deck || deck.designSystemId !== designSystemId) {
+        return { deckId, status: "unlinked" };
+      }
 
-    const data = JSON.parse(deck.data);
-    if ("designSystemId" in data) delete data.designSystemId;
-    await db
-      .update(schema.decks)
-      .set({
+      const data = JSON.parse(deck.data);
+      if ("designSystemId" in data) delete data.designSystemId;
+      await casUpdateDeck(db, deckId, deckRevOf(deck), {
         designSystemId: null,
         data: JSON.stringify(data),
         updatedAt: new Date().toISOString(),
-      })
-      .where(eq(schema.decks.id, deckId));
-    return { deckId, status: "unlinked" };
-  });
+      });
+      return { deckId, status: "unlinked" };
+    }),
+  );
 }
 
 export default defineAction({

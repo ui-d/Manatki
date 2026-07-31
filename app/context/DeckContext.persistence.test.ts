@@ -5,6 +5,7 @@ import { createElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  __resetDeckSaveStateForTests,
   DeckProvider,
   hasUncommittedDeckChanges,
   mergeServerAddedSlides,
@@ -178,6 +179,7 @@ describe("DeckContext deck creation persistence", () => {
   });
 
   afterEach(() => {
+    __resetDeckSaveStateForTests();
     vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -1132,7 +1134,8 @@ describe("DeckContext deck creation persistence", () => {
           },
         ],
       };
-      const { setAccessibleDeck } = setupFetch({ hangPut: true });
+      const fetchOptions = { hangPut: true };
+      const { setAccessibleDeck } = setupFetch(fetchOptions);
       const { result } = renderHook(() => useDecks(), { wrapper });
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -1174,9 +1177,20 @@ describe("DeckContext deck creation persistence", () => {
       expect(hasUncommittedDeckChanges("hang-deck", new Set())).toBe(true);
 
       // Advance past the 60s action timeout: the AbortController fires, the
-      // save rejects, and the save's `finally` deletes the inFlightSaves entry.
+      // save rejects, and the save's `finally` deletes the inFlightSaves
+      // entry. The failed full-replace is NOT dropped any more — it is
+      // re-queued with a retry timer, so the deck still reports uncommitted
+      // changes (previously the edit was silently lost here).
       await act(async () => {
         await vi.advanceTimersByTimeAsync(60_000);
+      });
+      expect(hasUncommittedDeckChanges("hang-deck", new Set())).toBe(true);
+
+      // Let the backoff retry fire against a now-healthy server: the queued
+      // full-replace commits and the uncommitted state drains.
+      fetchOptions.hangPut = false;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000);
       });
       expect(hasUncommittedDeckChanges("hang-deck", new Set())).toBe(false);
 

@@ -22,7 +22,12 @@ import {
   awaitLayoutFitCheck,
   formatOverflowForTool,
 } from "./_await-fit-check.js";
-import { resolveRequestedSlideSize } from "./_deck-write.js";
+import {
+  casUpdateDeck,
+  deckRevOf,
+  resolveRequestedSlideSize,
+  retryDeckWrite,
+} from "./_deck-write.js";
 import { withDeckLock } from "./patch-deck.js";
 
 function deckDeepLink(deckId: string): string {
@@ -185,7 +190,8 @@ export default defineAction({
     // serialises these writes so different-slide edits never overwrite each
     // other. The editor round-trip (fit check) runs AFTER the lock is released
     // so it never stalls concurrent writers for seconds.
-    const rmw = await withDeckLock(deckId, async () => {
+    const rmw = await withDeckLock(deckId, () =>
+      retryDeckWrite(deckId, async () => {
       const db = getDb();
 
       // Read SQL deck for the slide-existence check and to compute the new
@@ -197,6 +203,7 @@ export default defineAction({
           data: schema.decks.data,
           ownerEmail: schema.decks.ownerEmail,
           designSystemId: schema.decks.designSystemId,
+          rev: schema.decks.rev,
         })
         .from(schema.decks)
         .where(eq(schema.decks.id, deckId))
@@ -204,6 +211,7 @@ export default defineAction({
       if (!row) {
         throw new Error(`Deck ${deckId} not found`);
       }
+      const rev = deckRevOf(row);
 
       const deck = JSON.parse(row.data);
       const existingContext = storedCreativeContext(deck.creativeContext);
@@ -345,10 +353,10 @@ export default defineAction({
         const now = new Date().toISOString();
         deck.updatedAt = now;
         await db.transaction(async (tx: any) => {
-          await tx
-            .update(schema.decks)
-            .set({ data: JSON.stringify(deck), updatedAt: now })
-            .where(eq(schema.decks.id, deckId));
+          await casUpdateDeck(tx, deckId, rev, {
+            data: JSON.stringify(deck),
+            updatedAt: now,
+          });
           await recordGenerationCreativeContext(
             {
               appId: "slides",
@@ -375,7 +383,8 @@ export default defineAction({
       }
 
       return { applied, notFound, slide, slideIndex };
-    });
+      }),
+    );
 
     if (rmw.notFound) {
       return {

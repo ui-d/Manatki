@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { Slide } from "@/context/DeckContext";
 import { useAgentGenerating } from "@/hooks/use-agent-generating";
+import { getSlideDims } from "@/lib/slide-size";
 import { addSlideAgentMessage } from "@/lib/agent-visible-message";
 import type { AspectRatio } from "@/lib/aspect-ratios";
 
@@ -212,8 +213,42 @@ function SortableSlideThumb({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Rail virtualization: every row stays mounted (dnd-kit ids, keyboard nav,
+  // and highlight rects need the DOM), but the expensive full-resolution
+  // SlideRenderer only renders near the viewport — far rows show an
+  // aspect-ratio placeholder of identical height so scroll geometry is
+  // unchanged. A 40-slide deck drops from 40 live slide DOMs (~120 observers)
+  // to the visible handful.
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const [nearViewport, setNearViewport] = useState(index < 10);
+  useEffect(() => {
+    const node = rowRef.current;
+    if (!node) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setNearViewport(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => setNearViewport(entry.isIntersecting),
+      {
+        root: node.closest("[data-slide-rail]"),
+        rootMargin: "600px 0px",
+      },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const dims = getSlideDims(slide, aspectRatio);
+
   return (
-    <div ref={setNodeRef} style={style} className="group relative">
+    <div
+      ref={(node) => {
+        setNodeRef(node);
+        rowRef.current = node;
+      }}
+      style={style}
+      className="group relative"
+    >
       <button
         ref={(node) => registerButtonRef(slide.id, node)}
         onClick={onSelect}
@@ -264,7 +299,14 @@ function SortableSlideThumb({
                   : "rgba(255,255,255,0.06)",
             }}
           >
-            <SlideRenderer slide={slide} aspectRatio={aspectRatio} />
+            {nearViewport ? (
+              <SlideRenderer slide={slide} aspectRatio={aspectRatio} />
+            ) : (
+              <div
+                className="w-full bg-white/[0.03]"
+                style={{ aspectRatio: `${dims.width} / ${dims.height}` }}
+              />
+            )}
           </div>
         </div>
       </button>
@@ -659,6 +701,7 @@ export default function EditorSidebar({
 
       <div
         ref={thumbScrollRef}
+        data-slide-rail
         className="relative min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain p-2"
       >
         <SortableContext

@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { getDb, schema } from "../server/db/index.js";
 import { notifyClients } from "../server/handlers/decks.js";
+import { casUpdateDeck, deckRevOf, retryDeckWrite } from "./_deck-write.js";
 import { withDeckLock } from "./patch-deck.js";
 
 export default defineAction({
@@ -28,7 +29,8 @@ export default defineAction({
   run: async ({ deckId, slideId, screenshots, mode }) => {
     await assertAccess("deck", deckId, "editor");
 
-    return withDeckLock(deckId, async () => {
+    return withDeckLock(deckId, () =>
+      retryDeckWrite(deckId, async () => {
       const db = getDb();
       const [row] = await db
         .select()
@@ -36,6 +38,7 @@ export default defineAction({
         .where(eq(schema.decks.id, deckId))
         .limit(1);
       if (!row) throw new Error(`Deck ${deckId} not found`);
+      const rev = deckRevOf(row);
 
       const deck = JSON.parse(row.data) as {
         slides?: { id: string; screenshots?: string[] }[];
@@ -50,10 +53,10 @@ export default defineAction({
       const now = new Date().toISOString();
       deck.updatedAt = now;
 
-      await db
-        .update(schema.decks)
-        .set({ data: JSON.stringify(deck), updatedAt: now })
-        .where(eq(schema.decks.id, deckId));
+      await casUpdateDeck(db, deckId, rev, {
+        data: JSON.stringify(deck),
+        updatedAt: now,
+      });
       notifyClients(deckId);
 
       return {
@@ -64,6 +67,7 @@ export default defineAction({
         // restores the prior state exactly.
         inverse: { deckId, slideId, screenshots: previous, mode: "replace" },
       };
-    });
+      }),
+    );
   },
 });

@@ -29,6 +29,7 @@ import { getDb, schema } from "../server/db/index.js";
 import { notifyClients } from "../server/handlers/decks.js";
 import { createDeckVersionSnapshot } from "../server/lib/deck-versions.js";
 import { getDeckUrl } from "./_app-url.js";
+import { casUpdateDeck, deckRevOf, retryDeckWrite } from "./_deck-write.js";
 import { withDeckLock } from "./patch-deck.js";
 
 export function cloneableNativeSlide(context: ContextDetail): {
@@ -119,14 +120,17 @@ export default defineAction({
       resolveChild: getCreativeContextItemByExternalId,
     });
     source.content = validateNativeSlideHtml(reassembled.html);
-    return withDeckLock(deckId, async () => {
+    return withDeckLock(deckId, () =>
+      retryDeckWrite(deckId, async () => {
       await assertAccess("deck", deckId, "editor");
       const db = getDb();
       const [row] = await db
         .select()
         .from(schema.decks)
-        .where(eq(schema.decks.id, deckId));
+        .where(eq(schema.decks.id, deckId))
+        .limit(1);
       if (!row) throw new Error(`Deck ${deckId} not found`);
+      const rev = deckRevOf(row);
       const deck = JSON.parse(row.data) as Record<string, unknown>;
       const slides = Array.isArray(deck.slides)
         ? ([...deck.slides] as Array<Record<string, unknown>>)
@@ -247,10 +251,10 @@ export default defineAction({
         { label: "Before cloning Creative Context slide" },
       );
       await db.transaction(async (tx: any) => {
-        await tx
-          .update(schema.decks)
-          .set({ data: JSON.stringify(deck), updatedAt: now })
-          .where(eq(schema.decks.id, deckId));
+        await casUpdateDeck(tx, deckId, rev, {
+          data: JSON.stringify(deck),
+          updatedAt: now,
+        });
         await recordGenerationCreativeContext(
           {
             appId: "slides",
@@ -282,7 +286,8 @@ export default defineAction({
         }),
         url: getDeckUrl(deckId),
       };
-    });
+      }),
+    );
   },
   link: ({ result }) => {
     const value = result as { deckId?: string; deepLink?: string } | undefined;

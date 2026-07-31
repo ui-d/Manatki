@@ -13,7 +13,6 @@ import {
   getRequestUserEmail,
 } from "@agent-native/core/server/request-context";
 import { resolveAccess } from "@agent-native/core/sharing";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb, schema } from "../server/db/index.js";
@@ -23,9 +22,12 @@ import {
   assertDesignSystemReadable,
   assertValidAspectRatio,
   assertValidKind,
+  casUpdateDeck,
   deckDesignSystemId,
   deckHttpError,
+  deckRevOf,
   deckTitle,
+  retryDeckWrite,
   type DeckPayload,
 } from "./_deck-write.js";
 import { withDeckLock } from "./patch-deck.js";
@@ -62,7 +64,8 @@ export default defineAction({
   http: { method: "PUT" },
   agentTool: false,
   run: async (args) =>
-    withDeckLock(args.deckId, async () => {
+    withDeckLock(args.deckId, () =>
+    retryDeckWrite(args.deckId, async () => {
       const deckId = args.deckId;
       const deck = args.deck as DeckPayload;
       assertValidAspectRatio(deck);
@@ -124,16 +127,12 @@ export default defineAction({
             { label: "Before editor save" },
           );
         }
-        await db
-          .update(schema.decks)
-          .set({
-            title,
-            data: JSON.stringify(deck),
-            designSystemId:
-              nextDesignSystemId ?? access.resource.designSystemId,
-            updatedAt: now,
-          })
-          .where(eq(schema.decks.id, deckId));
+        await casUpdateDeck(db, deckId, deckRevOf(access.resource), {
+          title,
+          data: JSON.stringify(deck),
+          designSystemId: nextDesignSystemId ?? access.resource.designSystemId,
+          updatedAt: now,
+        });
       } else {
         // Viewer-only access — same 404 as no-access so we don't leak that the
         // deck exists with restricted permissions.
@@ -142,5 +141,5 @@ export default defineAction({
 
       notifyClients(deckId);
       return deck;
-    }),
+    })),
 });

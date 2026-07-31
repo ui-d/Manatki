@@ -17,6 +17,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   useRef,
   useSyncExternalStore,
   ReactNode,
@@ -153,6 +154,15 @@ export interface Deck {
   kind?: DeckKind;
   /** Default canvas for new slides in a social project. */
   defaultSize?: SlideSize;
+  /** Total slide count as reported by the server list endpoint — present on
+   * list payloads even when `slides` was truncated to the first slide. */
+  slideCount?: number;
+  /** Hosted URL of the rasterized first-slide thumbnail (library grid). */
+  previewUrl?: string | null;
+  /** True when this copy came from the first-slide-only list load and
+   * `slides` holds only slides[0]. Editor/presenter must full-fetch first;
+   * `ensureFullDeck` clears it. */
+  partialSlides?: boolean;
 }
 
 interface DeckContextType {
@@ -188,6 +198,9 @@ interface DeckContextType {
     updates: Partial<Omit<Deck, "id" | "createdAt">>,
   ) => void;
   reloadDecks: () => Promise<void>;
+  /** Full-fetch a deck whose list copy is first-slide-only (`partialSlides`).
+   * No-op when the local copy is already complete. */
+  ensureFullDeck: (id: string) => Promise<void>;
   getDeck: (id: string) => Deck | undefined;
   addSlide: (
     deckId: string,
@@ -292,16 +305,28 @@ const saveStateListeners = new Set<() => void>();
 // Ops are appended by enqueueDeckOp and drained when the debounce fires.
 const pendingOpsQueue = new Map<string, GranularOp[]>();
 
-// Cached snapshot for useSyncExternalStore. MUST be stable when the boolean
-// is unchanged or React will infinite-loop (it compares snapshots with
+// Per-deck consecutive save-failure count. Non-empty means unsaved edits are
+// being retried — surfaced to the toolbar so a failing save is never shown
+// as "saved". Cleared on the next successful flush for that deck.
+const saveFailureCounts = new Map<string, number>();
+
+// Retry backoff after a failed flush; ops stay queued between attempts.
+const SAVE_RETRY_DELAYS_MS = [2_000, 5_000, 10_000, 30_000];
+
+// Cached snapshot for useSyncExternalStore. MUST be stable when the booleans
+// are unchanged or React will infinite-loop (it compares snapshots with
 // Object.is — a fresh object literal every call schedules a new update,
 // which calls getSnapshot again, which returns a new object… etc).
-let cachedSnapshot: { saving: boolean } = { saving: false };
+let cachedSnapshot: { saving: boolean; error: boolean } = {
+  saving: false,
+  error: false,
+};
 
 function recomputeSnapshot() {
   const saving = pendingSaves.size > 0 || inFlightSaves.size > 0;
-  if (saving !== cachedSnapshot.saving) {
-    cachedSnapshot = { saving };
+  const error = saveFailureCounts.size > 0;
+  if (saving !== cachedSnapshot.saving || error !== cachedSnapshot.error) {
+    cachedSnapshot = { saving, error };
   }
 }
 
@@ -320,8 +345,11 @@ export function subscribeSaveState(listener: () => void): () => void {
   return () => saveStateListeners.delete(listener);
 }
 
-/** Snapshot of save state — true when anything is debounced or in flight. */
-export function getSaveSnapshot(): { saving: boolean } {
+/**
+ * Snapshot of save state — `saving` while anything is debounced or in
+ * flight, `error` while a deck's last flush failed and is being retried.
+ */
+export function getSaveSnapshot(): { saving: boolean; error: boolean } {
   return cachedSnapshot;
 }
 
@@ -349,10 +377,6 @@ function deckPayload(deck: Deck): Record<string, unknown> {
  * sent through `patch-deck`.
  */
 function enqueueDeckOp(deckId: string, op: GranularOp) {
-  // Clear any pending save timer — we're about to reset it
-  const existing = pendingSaves.get(deckId);
-  if (existing) clearTimeout(existing);
-
   if (op.op === "full-replace") {
     // Discard any accumulated granular ops — this is a wholesale replacement
     pendingOpsQueue.set(deckId, [op]);
@@ -362,53 +386,97 @@ function enqueueDeckOp(deckId: string, op: GranularOp) {
     pendingOpsQueue.set(deckId, queue);
   }
 
-  // Arm the debounce
-  const timer = setTimeout(async () => {
-    pendingSaves.delete(deckId);
-    inFlightSaves.add(deckId);
-    notifySaveListeners();
+  armDeckSave(deckId, 500);
+}
 
-    const ops = pendingOpsQueue.get(deckId) ?? [];
-    pendingOpsQueue.delete(deckId);
-
-    try {
-      if (ops.length === 0) return;
-
-      if (ops[0].op === "full-replace") {
-        // Legacy full-deck write — used by undo/redo and setDeckSlides.
-        // `callAction` bounds it so a stalled save can't wedge `inFlightSaves`
-        // forever (its `finally` cleanup below only runs once this await
-        // settles; an AbortError from the timeout still reaches it).
-        const deck = ops[0].deck;
-        await callAction(
-          "save-deck",
-          { deckId, deck: deckPayload(deck) },
-          { method: "PUT" },
-        );
-        const trailingOps = ops.slice(1) as PatchDeckOp[];
-        if (trailingOps.length > 0) {
-          await callAction("patch-deck", {
-            deckId,
-            operations: trailingOps,
-          });
-        }
-      } else {
-        // Granular patch — concurrent-safe
-        await callAction("patch-deck", {
-          deckId,
-          operations: ops as PatchDeckOp[],
-        });
-      }
-    } catch (err) {
-      console.error(`Failed to save deck ${deckId}:`, err);
-    } finally {
-      inFlightSaves.delete(deckId);
-      notifySaveListeners();
-    }
-  }, 500);
-
+/** (Re-)arm the per-deck flush timer, replacing any pending one. */
+function armDeckSave(deckId: string, delayMs: number) {
+  const existing = pendingSaves.get(deckId);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(() => {
+    void drainDeckQueue(deckId);
+  }, delayMs);
   pendingSaves.set(deckId, timer);
   notifySaveListeners();
+}
+
+/**
+ * Put ops that failed to flush back at the FRONT of the deck's queue (edits
+ * made while the flush was in flight stay behind them, preserving order) and
+ * arm a backoff retry. A newer queued full-replace supersedes the failed ops
+ * entirely — it already captures the authoritative state.
+ */
+function requeueFailedDeckOps(deckId: string, failedOps: GranularOp[]) {
+  const current = pendingOpsQueue.get(deckId) ?? [];
+  if (current[0]?.op !== "full-replace") {
+    pendingOpsQueue.set(deckId, [...failedOps, ...current]);
+  }
+  const failures = (saveFailureCounts.get(deckId) ?? 0) + 1;
+  saveFailureCounts.set(deckId, failures);
+  // A fresh edit may already have armed a sooner flush — keep it.
+  if (!pendingSaves.has(deckId)) {
+    const delay =
+      SAVE_RETRY_DELAYS_MS[
+        Math.min(failures - 1, SAVE_RETRY_DELAYS_MS.length - 1)
+      ];
+    armDeckSave(deckId, delay);
+  }
+  notifySaveListeners();
+}
+
+/**
+ * Flush a deck's queued ops to the server. On failure the unsaved ops are
+ * re-queued and retried with backoff, and the save state exposes `error`
+ * so the toolbar never claims a failing deck is saved.
+ */
+async function drainDeckQueue(deckId: string) {
+  pendingSaves.delete(deckId);
+  inFlightSaves.add(deckId);
+  notifySaveListeners();
+
+  const ops = pendingOpsQueue.get(deckId) ?? [];
+  pendingOpsQueue.delete(deckId);
+
+  // Narrows to the ops that are still uncommitted if a multi-request flush
+  // fails partway (save-deck succeeded, trailing patch-deck did not).
+  let unsavedOps: GranularOp[] = ops;
+  try {
+    if (ops.length === 0) return;
+
+    if (ops[0].op === "full-replace") {
+      // Legacy full-deck write — used by undo/redo and setDeckSlides.
+      // `callAction` bounds it so a stalled save can't wedge `inFlightSaves`
+      // forever (its `finally` cleanup below only runs once this await
+      // settles; an AbortError from the timeout still reaches it).
+      const deck = ops[0].deck;
+      await callAction(
+        "save-deck",
+        { deckId, deck: deckPayload(deck) },
+        { method: "PUT" },
+      );
+      const trailingOps = ops.slice(1) as PatchDeckOp[];
+      unsavedOps = trailingOps;
+      if (trailingOps.length > 0) {
+        await callAction("patch-deck", {
+          deckId,
+          operations: trailingOps,
+        });
+      }
+    } else {
+      // Granular patch — concurrent-safe
+      await callAction("patch-deck", {
+        deckId,
+        operations: ops as PatchDeckOp[],
+      });
+    }
+    saveFailureCounts.delete(deckId);
+  } catch (err) {
+    console.error(`Failed to save deck ${deckId}:`, err);
+    requeueFailedDeckOps(deckId, unsavedOps);
+  } finally {
+    inFlightSaves.delete(deckId);
+    notifySaveListeners();
+  }
 }
 
 /**
@@ -428,64 +496,93 @@ function saveDeckToAPI(deck: Deck) {
  * handler — without it there is a ~500ms window (the debounce) where the
  * user's most recent edits are only in memory and are lost on tab close.
  *
- * keepalive requests are best-effort and capped (~64KB by the browser), which
- * is fine: granular ops are small, and if a full-replace payload is too large
- * to send keepalive the normal debounce/poll path still catches up on reopen.
+ * keepalive request bodies are capped (~64KB by the browser); an oversized
+ * or rejected send used to be dropped silently AFTER the queue had already
+ * been cleared, losing the edits even when the tab survived (tab switch,
+ * bfcache restore). Failed sends now re-queue their ops with retry backoff —
+ * only a real process exit can still lose them, which nothing can prevent.
  */
 function flushPendingSaves() {
   const actionsBase = agentNativePath("/_agent-native/actions");
   const actionUrl = `${actionsBase}/patch-deck`;
   const saveDeckUrl = `${actionsBase}/save-deck`;
+
+  // Fire a keepalive request; on any failure (network reject, oversized
+  // keepalive body, non-2xx) put the ops back so a surviving page retries.
+  const sendKeepalive = (
+    deckId: string,
+    url: string,
+    method: "PUT" | "POST",
+    body: unknown,
+    opsIfFailed: GranularOp[],
+  ) => {
+    const requeue = () => requeueFailedDeckOps(deckId, opsIfFailed);
+    try {
+      void fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Agent-Native-Frontend": "1",
+        },
+        body: JSON.stringify(body),
+        keepalive: true,
+      }).then((res) => {
+        if (res.ok) {
+          saveFailureCounts.delete(deckId);
+          notifySaveListeners();
+        } else {
+          requeue();
+        }
+      }, requeue);
+    } catch {
+      // fetch() itself can throw synchronously for oversized keepalive bodies.
+      requeue();
+    }
+  };
+
   for (const [deckId, timer] of pendingSaves) {
     clearTimeout(timer);
+    pendingSaves.delete(deckId);
     const ops = pendingOpsQueue.get(deckId);
     pendingOpsQueue.delete(deckId);
     if (!ops || ops.length === 0) continue;
-    try {
-      if (ops[0].op === "full-replace") {
-        const deck = ops[0].deck;
-        void fetch(saveDeckUrl, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Agent-Native-Frontend": "1",
-          },
-          body: JSON.stringify({ deckId, deck }),
-          keepalive: true,
-        });
-        const trailingOps = ops.slice(1) as PatchDeckOp[];
-        if (trailingOps.length === 0) continue;
-        void fetch(actionUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Agent-Native-Frontend": "1",
-          },
-          body: JSON.stringify({
-            deckId,
-            operations: trailingOps,
-          }),
-          keepalive: true,
-        });
-      } else {
-        void fetch(actionUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Agent-Native-Frontend": "1",
-          },
-          body: JSON.stringify({
-            deckId,
-            operations: ops as PatchDeckOp[],
-          }),
-          keepalive: true,
-        });
+    if (ops[0].op === "full-replace") {
+      const deck = ops[0].deck;
+      const trailingOps = ops.slice(1) as PatchDeckOp[];
+      sendKeepalive(deckId, saveDeckUrl, "PUT", { deckId, deck }, ops);
+      if (trailingOps.length > 0) {
+        sendKeepalive(
+          deckId,
+          actionUrl,
+          "POST",
+          { deckId, operations: trailingOps },
+          trailingOps,
+        );
       }
-    } catch {
-      // Best-effort — nothing more we can do as the page is unloading.
+    } else {
+      sendKeepalive(
+        deckId,
+        actionUrl,
+        "POST",
+        { deckId, operations: ops as PatchDeckOp[] },
+        ops,
+      );
     }
   }
   pendingSaves.clear();
+  notifySaveListeners();
+}
+
+/**
+ * Test-only: clear all module-level save state (timers, queues, failure
+ * counts) so retry timers armed by one test never leak into the next.
+ */
+export function __resetDeckSaveStateForTests() {
+  for (const timer of pendingSaves.values()) clearTimeout(timer);
+  pendingSaves.clear();
+  inFlightSaves.clear();
+  pendingOpsQueue.clear();
+  saveFailureCounts.clear();
   notifySaveListeners();
 }
 
@@ -494,6 +591,7 @@ function discardPendingDeckOps(deckId: string) {
   if (timer) clearTimeout(timer);
   pendingSaves.delete(deckId);
   pendingOpsQueue.delete(deckId);
+  saveFailureCounts.delete(deckId);
   notifySaveListeners();
 }
 
@@ -743,9 +841,14 @@ export function deriveInverseOp(
  */
 async function fetchDecksFromAPI(): Promise<Deck[] | null> {
   try {
+    // First-slide-only projection: the library grid renders only slides[0]
+    // and a count, so downloading every deck's full slide JSON here was pure
+    // waste (the dominant wire cost of the app). Decks arrive with
+    // `partialSlides: true` when truncated; opening one full-fetches it via
+    // ensureFullDeck / includeOpenDeckIfMissing.
     const result = await callAction<DeckListActionResult>(
       "list-decks",
-      { includeSlides: "true" },
+      { firstSlideOnly: "true" },
       { method: "GET" },
     );
     if (!Array.isArray(result?.decks)) {
@@ -825,12 +928,19 @@ export async function includeOpenDeckIfMissing(
   openDeckId: string | null,
   fetchById: (id: string) => Promise<Deck | null> = fetchDeckFromAPI,
 ): Promise<Deck[]> {
-  if (!openDeckId || decks.some((deck) => deck.id === openDeckId)) {
+  if (!openDeckId) return decks;
+  const existing = decks.find((deck) => deck.id === openDeckId);
+  if (existing && !existing.partialSlides) {
     return decks;
   }
 
   const directDeck = await fetchById(openDeckId);
-  return directDeck ? [...decks, directDeck] : decks;
+  if (!directDeck) return decks;
+  // Replace a partial (first-slide-only) copy of the open deck with the full
+  // fetch — the editor must never render a truncated slide list.
+  return existing
+    ? decks.map((deck) => (deck.id === openDeckId ? directDeck : deck))
+    : [...decks, directDeck];
 }
 
 async function fetchDecksForCurrentRoute(): Promise<Deck[] | null> {
@@ -1254,6 +1364,9 @@ export function DeckProvider({ children }: { children: ReactNode }) {
 
       const changed =
         !clientDeck ||
+        // A first-slide-only list copy must always adopt the full fetch even
+        // when updatedAt matches.
+        clientDeck.partialSlides === true ||
         clientDeck.updatedAt !== serverDeck.updatedAt ||
         clientDeck.slides.length !== serverDeck.slides.length;
       if (!changed) return;
@@ -2191,32 +2304,74 @@ export function DeckProvider({ children }: { children: ReactNode }) {
     [markDeckDirty, setDecksLocal],
   );
 
+  // A deck opened from the first-slide-only list load is a truncated copy —
+  // full-fetch it before the editor/presenter renders slides.
+  const ensureFullDeck = useCallback(
+    async (id: string) => {
+      const existing = decksRef.current.find((d) => d.id === id);
+      if (existing && !existing.partialSlides) return;
+      await refetchOpenDeckIfChanged(id);
+    },
+    [refetchOpenDeckIfChanged],
+  );
+
+  // Memoized so a decks-state update doesn't hand every consumer a fresh
+  // context object: with zero memo()'d components downstream, an unstable
+  // value re-rendered the whole editor tree (all slide DOMs) per keystroke
+  // flush.
+  const contextValue = useMemo(
+    () => ({
+      decks,
+      loading,
+      loadError,
+      createDeck,
+      ensureDeckPersisted,
+      duplicateDeck,
+      deleteDeck,
+      updateDeck,
+      reloadDecks,
+      ensureFullDeck,
+      getDeck,
+      addSlide,
+      updateSlide,
+      deleteSlide,
+      duplicateSlide,
+      reorderSlides,
+      setDeckSlides,
+      markDeckDirty,
+      undo,
+      redo,
+      canUndo,
+      canRedo,
+    }),
+    [
+      decks,
+      loading,
+      loadError,
+      createDeck,
+      ensureDeckPersisted,
+      duplicateDeck,
+      deleteDeck,
+      updateDeck,
+      reloadDecks,
+      ensureFullDeck,
+      getDeck,
+      addSlide,
+      updateSlide,
+      deleteSlide,
+      duplicateSlide,
+      reorderSlides,
+      setDeckSlides,
+      markDeckDirty,
+      undo,
+      redo,
+      canUndo,
+      canRedo,
+    ],
+  );
+
   return (
-    <DeckContext.Provider
-      value={{
-        decks,
-        loading,
-        loadError,
-        createDeck,
-        ensureDeckPersisted,
-        duplicateDeck,
-        deleteDeck,
-        updateDeck,
-        reloadDecks,
-        getDeck,
-        addSlide,
-        updateSlide,
-        deleteSlide,
-        duplicateSlide,
-        reorderSlides,
-        setDeckSlides,
-        markDeckDirty,
-        undo,
-        redo,
-        canUndo,
-        canRedo,
-      }}
-    >
+    <DeckContext.Provider value={contextValue}>
       {children}
     </DeckContext.Provider>
   );
@@ -2236,8 +2391,12 @@ export function useDecks() {
  * their work has been committed (Rochkind reported losing a full deck because
  * there was no save signal).
  */
-export function useSaveState(): { saving: boolean } {
-  return useSyncExternalStore(subscribeSaveState, getSaveSnapshot, () => ({
-    saving: false,
-  }));
+const SERVER_SAVE_SNAPSHOT = { saving: false, error: false } as const;
+
+export function useSaveState(): { saving: boolean; error: boolean } {
+  return useSyncExternalStore(
+    subscribeSaveState,
+    getSaveSnapshot,
+    () => SERVER_SAVE_SNAPSHOT,
+  );
 }

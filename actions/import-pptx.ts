@@ -18,6 +18,7 @@ import {
   type ParsedSlide,
 } from "../server/handlers/import/pptx-parser.js";
 import { getDeckUrl } from "./_app-url.js";
+import { casUpdateDeck, deckRevOf, retryDeckWrite } from "./_deck-write.js";
 import { readUserUploadedFile } from "./_uploaded-files.js";
 
 // EMF/WMF (Windows metafiles) and TIFF are valid PPTX embed formats but
@@ -145,20 +146,24 @@ export default defineAction({
     const now = new Date().toISOString();
 
     if (deckId) {
-      const existing = await db
-        .select()
-        .from(schema.decks)
-        .where(eq(schema.decks.id, deckId));
+      await retryDeckWrite(deckId, async () => {
+        const existing = await db
+          .select()
+          .from(schema.decks)
+          .where(eq(schema.decks.id, deckId))
+          .limit(1);
 
-      if (!existing.length) {
-        throw new Error(`Deck ${deckId} not found`);
-      }
+        if (!existing.length) {
+          throw new Error(`Deck ${deckId} not found`);
+        }
 
-      const data = { title: deckTitle, slides, updatedAt: now };
-      await db
-        .update(schema.decks)
-        .set({ title: deckTitle, data: JSON.stringify(data), updatedAt: now })
-        .where(eq(schema.decks.id, deckId));
+        const data = { title: deckTitle, slides, updatedAt: now };
+        await casUpdateDeck(db, deckId, deckRevOf(existing[0]), {
+          title: deckTitle,
+          data: JSON.stringify(data),
+          updatedAt: now,
+        });
+      });
 
       notifyClients(deckId);
       await writeAppState("refresh-signal", {

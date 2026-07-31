@@ -8,6 +8,7 @@ import { getDb, schema } from "../server/db/index.js";
 import { notifyClients } from "../server/handlers/decks.js";
 import { createDeckVersionSnapshot } from "../server/lib/deck-versions.js";
 import { getDeckUrl } from "./_app-url.js";
+import { casUpdateDeck, deckRevOf, retryDeckWrite } from "./_deck-write.js";
 
 export default defineAction({
   description:
@@ -16,7 +17,8 @@ export default defineAction({
     deckId: z.string().describe("Deck ID"),
     versionId: z.string().describe("Version snapshot ID to restore"),
   }),
-  run: async ({ deckId, versionId }) => {
+  run: async ({ deckId, versionId }) =>
+    retryDeckWrite(deckId, async () => {
     const access = await assertAccess("deck", deckId, "editor");
     const current = access.resource;
     const ownerEmail = current.ownerEmail as string;
@@ -59,15 +61,12 @@ export default defineAction({
         ? data.designSystemId
         : null;
 
-    await db
-      .update(schema.decks)
-      .set({
-        title,
-        data: JSON.stringify(data),
-        designSystemId,
-        updatedAt: now,
-      })
-      .where(eq(schema.decks.id, deckId));
+    await casUpdateDeck(db, deckId, deckRevOf(current), {
+      title,
+      data: JSON.stringify(data),
+      designSystemId,
+      updatedAt: now,
+    });
 
     notifyClients(deckId);
     await writeAppState("refresh-signal", {
@@ -83,5 +82,5 @@ export default defineAction({
       updatedAt: now,
       url: getDeckUrl(deckId),
     };
-  },
+    }),
 });

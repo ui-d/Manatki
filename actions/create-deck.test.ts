@@ -59,8 +59,9 @@ const valuesFn = vi.fn(async (row: Record<string, unknown>) => {
 });
 const insertFn = vi.fn(() => ({ values: valuesFn }));
 
-// db.update().set(...).where(...)
-const whereUpdateFn = vi.fn(async () => undefined);
+// db.update().set(...).where(...).returning(...)
+const returningUpdateFn = vi.fn(async () => [{ id: "deck-1" }]);
+const whereUpdateFn = vi.fn(() => ({ returning: returningUpdateFn }));
 const setFn = vi.fn((fields: Record<string, unknown>) => {
   updatedFields = fields;
   return { where: whereUpdateFn };

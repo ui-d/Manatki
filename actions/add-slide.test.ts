@@ -14,16 +14,18 @@ let mockFitCheckResult:
 let deckData: Record<string, unknown>;
 let updatedFields: Record<string, unknown> | undefined;
 
-const whereSelectFn = vi.fn(async () => [
+const limitSelectFn = vi.fn(async () => [
   {
     id: "deck-1",
     data: JSON.stringify(deckData),
   },
 ]);
+const whereSelectFn = vi.fn(() => ({ limit: limitSelectFn }));
 const fromFn = vi.fn(() => ({ where: whereSelectFn }));
 const selectFn = vi.fn(() => ({ from: fromFn }));
 
-const whereUpdateFn = vi.fn(async () => undefined);
+const returningUpdateFn = vi.fn(async () => [{ id: "deck-1" }]);
+const whereUpdateFn = vi.fn(() => ({ returning: returningUpdateFn }));
 const setFn = vi.fn((fields: Record<string, unknown>) => {
   updatedFields = fields;
   return { where: whereUpdateFn };
@@ -121,6 +123,7 @@ vi.mock("../server/lib/deck-versions.js", () => ({
 
 vi.mock("drizzle-orm", () => ({
   eq: (col: unknown, val: unknown) => ({ col, val }),
+  and: (...args: unknown[]) => ({ and: args }),
   sql: vi.fn((strings, ...values) => ({ strings, values })),
 }));
 

@@ -12,6 +12,15 @@ export const decks = table("decks", {
   title: text("title").notNull(),
   data: text("data").notNull(), // Full deck JSON
   designSystemId: text("design_system_id"),
+  // Optimistic-concurrency revision. Every blob write goes through
+  // casUpdateDeck (actions/_deck-write.ts) which bumps rev and guards the
+  // UPDATE with `WHERE rev = <read value>` — the in-process deck lock cannot
+  // serialise writers across serverless instances.
+  rev: integer("rev").notNull().default(0),
+  // Hosted URL of a rasterized first-slide preview (never image bytes).
+  // Written by the editor's preview generator via set-deck-preview; the
+  // library grid renders it instead of a live full-resolution slide DOM.
+  previewUrl: text("preview_url"),
   createdAt: text("created_at").default(now()),
   updatedAt: text("updated_at").default(now()),
   ...ownableColumns(),

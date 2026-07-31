@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, it, expect } from "vitest";
 
 import { ASPECT_RATIOS } from "./aspect-ratios";
@@ -6,11 +8,13 @@ import {
   MAX_SLIDE_DIM,
   MIN_SLIDE_DIM,
   SIZE_PRESETS,
+  SIZE_PRESET_CATEGORIES,
   SIZE_PRESET_VALUES,
   getPresetSize,
   getSlideDims,
   isUniformSize,
   isValidSlideDims,
+  presetsInCategory,
 } from "./slide-size";
 
 describe("SIZE_PRESETS", () => {
@@ -37,6 +41,37 @@ describe("SIZE_PRESETS", () => {
     expect(getPresetSize("nope")).toBeNull();
     expect(getPresetSize("toString")).toBeNull();
     expect(getPresetSize("hasOwnProperty")).toBeNull();
+  });
+
+  it("every preset belongs to exactly one listed category", () => {
+    const grouped = SIZE_PRESET_CATEGORIES.flatMap((category) =>
+      presetsInCategory(category),
+    );
+    expect(new Set(grouped)).toEqual(new Set(SIZE_PRESET_VALUES));
+    expect(grouped.length).toBe(SIZE_PRESET_VALUES.length);
+  });
+
+  it("every preset id and its dimensions appear in the create-social-assets skill", () => {
+    // The skill tells the agent "do not explore the codebase" — its preset
+    // table is a hand-maintained mirror of SIZE_PRESETS, so drift there means
+    // the agent silently stops offering (or mis-sizes) a format.
+    const skill = readFileSync(
+      new URL(
+        "../.agents/skills/create-social-assets/SKILL.md",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    for (const key of SIZE_PRESET_VALUES) {
+      const preset = SIZE_PRESETS[key];
+      expect(skill, `preset id ${key} missing from SKILL.md`).toContain(
+        `\`${key}\``,
+      );
+      expect(
+        skill,
+        `dimensions for ${key} missing from SKILL.md`,
+      ).toContain(`${preset.width}×${preset.height}`);
+    }
   });
 });
 

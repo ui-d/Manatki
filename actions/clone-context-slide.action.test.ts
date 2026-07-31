@@ -65,7 +65,7 @@ vi.mock("@agent-native/creative-context/store", () => ({
   getCreativeContextItemByExternalId: mocks.getCreativeContextItemByExternalId,
 }));
 
-vi.mock("drizzle-orm", () => ({ eq: () => ({}) }));
+vi.mock("drizzle-orm", () => ({ eq: () => ({}), and: () => ({}) }));
 
 vi.mock("../server/db/index.js", () => {
   const row = {
@@ -77,18 +77,23 @@ vi.mock("../server/db/index.js", () => {
   const db = {
     select: () => ({
       from: () => ({
-        where: async () => [
-          { ...row, data: JSON.stringify(mocks.updatedDeck) },
-        ],
+        where: () => ({
+          limit: async () => [
+            { ...row, data: JSON.stringify(mocks.updatedDeck) },
+          ],
+        }),
       }),
     }),
     transaction: async (run: (tx: unknown) => Promise<void>) =>
       run({
         update: () => ({
           set: (values: { data: string }) => ({
-            where: async () => {
-              mocks.updatedDeck = JSON.parse(values.data);
-            },
+            where: () => ({
+              returning: async () => {
+                mocks.updatedDeck = JSON.parse(values.data);
+                return [{ id: row.id }];
+              },
+            }),
           }),
         }),
       }),

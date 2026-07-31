@@ -67,9 +67,13 @@ ladder.
 ## Persistence Model
 
 Decks are stored as a single JSON blob in the `decks.data` column. All writes
-go through server-side read-modify-write actions that hold a per-deck lock,
-so concurrent writers (human + agent, two humans) touching different slides
-never overwrite each other's work.
+go through server-side read-modify-write actions guarded by two layers: an
+in-process per-deck lock, and a `rev` compare-and-swap (`casUpdateDeck` +
+`retryDeckWrite` in `actions/_deck-write.ts`) that protects against writers on
+other serverless instances. Any new action that rewrites `decks.data` MUST
+read `rev` with the row and persist through `casUpdateDeck` inside
+`retryDeckWrite` — a blind `UPDATE decks SET data = ...` can silently discard
+a concurrent writer's slides.
 
 **Agent actions** (`update-slide`, `add-slide`): continue to use their dedicated
 granular actions — they share the same in-process deck lock.

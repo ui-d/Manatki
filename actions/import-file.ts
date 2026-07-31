@@ -18,6 +18,7 @@ import {
   type AspectRatio,
 } from "../shared/aspect-ratios.js";
 import { readUserUploadedFile } from "./_uploaded-files.js";
+import { casUpdateDeck, deckRevOf, retryDeckWrite } from "./_deck-write.js";
 import { withDeckLock } from "./patch-deck.js";
 
 const DEFAULT_MAX_SOURCE_CHARS = 60_000;
@@ -571,7 +572,8 @@ async function appendDeckSlides(
   // with another import or an editor/agent slide mutation on the same deck
   // could read stale data and clobber the other write when both save the
   // whole decks.data blob back.
-  const now = await withDeckLock(deckId, async () => {
+  const now = await withDeckLock(deckId, () =>
+    retryDeckWrite(deckId, async () => {
     const db = getDb();
     const existing = await db
       .select()
@@ -582,6 +584,7 @@ async function appendDeckSlides(
     if (!existing.length) {
       throw new Error(`Deck ${deckId} not found`);
     }
+    const rev = deckRevOf(existing[0]);
 
     const writeNow = new Date().toISOString();
     const previousData = safeParseDeckData(existing[0].data);
@@ -604,17 +607,15 @@ async function appendDeckSlides(
       updatedAt: writeNow,
     };
 
-    await db
-      .update(schema.decks)
-      .set({
-        title: nextTitle,
-        data: JSON.stringify(data),
-        updatedAt: writeNow,
-      })
-      .where(eq(schema.decks.id, deckId));
+    await casUpdateDeck(db, deckId, rev, {
+      title: nextTitle,
+      data: JSON.stringify(data),
+      updatedAt: writeNow,
+    });
 
     return writeNow;
-  });
+    }),
+  );
 
   notifyClients(deckId);
   await writeAppState("refresh-signal", { ts: now, source });

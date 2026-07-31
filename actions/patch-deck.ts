@@ -2,13 +2,14 @@
  * patch-deck — granular, server-side read-modify-write for deck fields,
  * individual slides, slide ordering, slide deletion, and slide addition.
  *
- * All mutations run under the same per-deck lock used by `add-slide` so
- * concurrent writers touching DIFFERENT slides of the same deck never
- * silently overwrite each other's work (the last-full-PUT-wins race).
+ * Two layers keep concurrent writers from overwriting each other:
+ * the per-deck promise lock serialises writers inside one Node process, and
+ * the `rev` compare-and-swap (`casUpdateDeck` + `retryDeckWrite`) protects
+ * against writers on OTHER serverless instances — the lock alone cannot.
  *
  * This action is called by the client editor instead of the old full-deck PUT.
  * Agent actions (update-slide, add-slide, etc.) continue to use their own
- * dedicated actions which also use the same per-deck lock.
+ * dedicated actions which share both layers.
  */
 import { defineAction } from "@agent-native/core";
 import { assertAccess } from "@agent-native/core/sharing";
@@ -26,9 +27,15 @@ import { z } from "zod";
 import { normalizeSlidePadding } from "../app/lib/normalize-slide-padding.js";
 import { getDb, schema } from "../server/db/index.js";
 import { notifyClients } from "../server/handlers/decks.js";
+import { createDeckVersionSnapshot } from "../server/lib/deck-versions.js";
 import { ASPECT_RATIO_VALUES } from "../shared/aspect-ratios.js";
 import { DECK_KIND_VALUES } from "../shared/slide-size.js";
-import { SlideSizeSchema } from "./_deck-write.js";
+import {
+  casUpdateDeck,
+  deckRevOf,
+  retryDeckWrite,
+  SlideSizeSchema,
+} from "./_deck-write.js";
 
 // ---------------------------------------------------------------------------
 // Per-deck write lock — same pattern as add-slide.ts so all client and agent
@@ -369,15 +376,39 @@ export default defineAction({
   run: async ({ deckId, operations, creativeContext }) => {
     await assertAccess("deck", deckId, "editor");
 
-    return withDeckLock(deckId, async () => {
-      const db = getDb();
-      const [row] = await db
-        .select()
-        .from(schema.decks)
-        .where(eq(schema.decks.id, deckId))
-        .limit(1);
+    return withDeckLock(deckId, () =>
+      retryDeckWrite(deckId, async () => {
+        const db = getDb();
+        const [row] = await db
+          .select()
+          .from(schema.decks)
+          .where(eq(schema.decks.id, deckId))
+          .limit(1);
 
-      if (!row) throw new Error(`Deck ${deckId} not found`);
+        if (!row) throw new Error(`Deck ${deckId} not found`);
+        const rev = deckRevOf(row);
+
+      // Editor edits flow exclusively through this action, so this is the only
+      // place browser typing can enter version history. The 5-minute interval
+      // + duplicate suppression inside createDeckVersionSnapshot keep an hour
+      // of typing at ~12 snapshots. A snapshot failure must never lose the
+      // user's save, so it degrades to a logged warning.
+      try {
+        await createDeckVersionSnapshot(
+          {
+            id: row.id,
+            title: row.title,
+            data: row.data,
+            ownerEmail: row.ownerEmail,
+          },
+          { label: "Before editor edit" },
+        );
+      } catch (err) {
+        console.warn(
+          `[patch-deck] version snapshot failed for deck ${deckId}:`,
+          err instanceof Error ? err.message : err,
+        );
+      }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const deck: any = JSON.parse(row.data);
@@ -516,15 +547,12 @@ export default defineAction({
       }
 
       await db.transaction(async (tx: any) => {
-        await tx
-          .update(schema.decks)
-          .set({
-            title: sqlTitle,
-            data: JSON.stringify(deck),
-            designSystemId: sqlDesignSystemId,
-            updatedAt: now,
-          })
-          .where(eq(schema.decks.id, deckId));
+        await casUpdateDeck(tx, deckId, rev, {
+          title: sqlTitle,
+          data: JSON.stringify(deck),
+          designSystemId: sqlDesignSystemId,
+          updatedAt: now,
+        });
         if (generationRecord) {
           await recordGenerationCreativeContext(
             {
@@ -541,6 +569,7 @@ export default defineAction({
       notifyClients(deckId);
 
       return { ok: true, deckId, updatedAt: now };
-    });
+      }),
+    );
   },
 });

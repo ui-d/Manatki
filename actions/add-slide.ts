@@ -23,8 +23,11 @@ import {
   SIZE_PRESET_VALUES,
 } from "../shared/slide-size.js";
 import {
+  casUpdateDeck,
   deckDefaultSize,
+  deckRevOf,
   resolveRequestedSlideSize,
+  retryDeckWrite,
 } from "./_deck-write.js";
 import { slideLabelFor, touchAgentSlidePresence } from "./_agent-presence.js";
 import {
@@ -208,20 +211,23 @@ export default defineAction({
     contextModeOverride,
     reuseLabels,
   }) =>
-    withDeckLock(deckId, async () => {
+    withDeckLock(deckId, () =>
+    retryDeckWrite(deckId, async () => {
       await assertAccess("deck", deckId, "editor");
       const db = getDb();
 
       const rows = await db
         .select()
         .from(schema.decks)
-        .where(eq(schema.decks.id, deckId));
+        .where(eq(schema.decks.id, deckId))
+        .limit(1);
 
       if (!rows.length) {
         throw new Error(`Deck ${deckId} not found`);
       }
 
       const row = rows[0];
+      const rev = deckRevOf(row);
       const deck = JSON.parse(row.data);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const slides: any[] = Array.isArray(deck.slides) ? deck.slides : [];
@@ -370,10 +376,10 @@ export default defineAction({
         { label: "Before adding slide" },
       );
       await db.transaction(async (tx: any) => {
-        await tx
-          .update(schema.decks)
-          .set({ data: JSON.stringify(deck), updatedAt: now })
-          .where(eq(schema.decks.id, deckId));
+        await casUpdateDeck(tx, deckId, rev, {
+          data: JSON.stringify(deck),
+          updatedAt: now,
+        });
         await recordGenerationCreativeContext(
           {
             appId: "slides",
@@ -458,7 +464,7 @@ export default defineAction({
       }
 
       return base;
-    }),
+    })),
   link: ({ result, args }) => {
     const deckId =
       result && typeof result === "object"

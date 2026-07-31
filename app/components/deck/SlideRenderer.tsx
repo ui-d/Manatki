@@ -1,5 +1,6 @@
 import { useT } from "@agent-native/core/client/i18n";
 import {
+  memo,
   useState,
   useEffect,
   useMemo,
@@ -728,7 +729,7 @@ export function SlideInner({
   );
 }
 
-export default function SlideRenderer({
+function SlideRenderer({
   slide,
   className = "",
   thumbnail = true,
@@ -851,3 +852,10 @@ function ScaleHelper({
     <div className="absolute inset-0 pointer-events-none" ref={refCallback} />
   );
 }
+
+/**
+ * Memoized: sidebar rails, library cards, and history panels render one
+ * SlideRenderer per slide. Slide objects are replaced immutably on edit, so
+ * a stable reference means the (expensive) full slide DOM can be skipped.
+ */
+export default memo(SlideRenderer);

@@ -47,6 +47,9 @@ import ImageDropPromptPopover from "@/components/editor/ImageDropPromptPopover";
 import ImageGenPanel from "@/components/editor/ImageGenPanel";
 import ImageSearchPanel from "@/components/editor/ImageSearchPanel";
 import LogoSearchPanel from "@/components/editor/LogoSearchPanel";
+import { OffscreenSlideStage } from "@/components/editor/OffscreenSlideStage";
+import { PngExportListener } from "@/components/editor/PngExportListener";
+import { PreviewThumbnailGenerator } from "@/components/editor/PreviewThumbnailGenerator";
 import { QuestionFlow } from "@/components/editor/QuestionFlow";
 import { ScreenshotsPanel } from "@/components/editor/ScreenshotsPanel";
 import SlideEditor from "@/components/editor/SlideEditor";
@@ -173,6 +176,7 @@ export default function DeckEditor() {
     addSlide,
     reorderSlides,
     markDeckDirty,
+    ensureFullDeck,
     undo,
     redo,
     canUndo,
@@ -266,6 +270,36 @@ export default function DeckEditor() {
   }, []);
 
   const deck = getDeck(id || "");
+
+  // A deck opened from the library grid may be a first-slide-only list copy
+  // (`partialSlides`) — replace it with the full fetch before trusting the
+  // slide list.
+  useEffect(() => {
+    if (deck?.partialSlides && deck.id) {
+      void ensureFullDeck(deck.id);
+    }
+  }, [deck?.id, deck?.partialSlides, ensureFullDeck]);
+
+  // Client exports capture slide DOM. The sidebar rail only keeps slides
+  // near the viewport mounted, so exports mount full-resolution copies of
+  // every slide offscreen for the duration of the capture.
+  const [exportStageActive, setExportStageActive] = useState(false);
+  const withExportStage = useCallback(
+    async <T,>(fn: () => Promise<T>): Promise<T> => {
+      setExportStageActive(true);
+      // Two frames so the stage is committed and laid out before capture.
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+      try {
+        return await fn();
+      } finally {
+        setExportStageActive(false);
+      }
+    },
+    [],
+  );
+
   const hasTeamJoinOption =
     !org?.orgId &&
     ((org?.pendingInvitations?.length ?? 0) > 0 ||
@@ -949,7 +983,9 @@ export default function DeckEditor() {
               });
               return;
             }
-            await exportDeckAsPdf(deck.title, slideIds, deck.aspectRatio);
+            await withExportStage(() =>
+              exportDeckAsPdf(deck.title, slideIds, deck.aspectRatio),
+            );
           } catch (err) {
             console.error("[pdf-export] failed:", err);
             toast.error(t("deckEditor.exportFailed"), {
@@ -971,7 +1007,9 @@ export default function DeckEditor() {
           if (!isUniformSize(deck.slides, deck.aspectRatio)) {
             throw new Error(t("deckEditor.mixedSizesExport"));
           }
-          await exportDeckAsPptx(deck.title, slides, deck.aspectRatio);
+          await withExportStage(() =>
+            exportDeckAsPptx(deck.title, slides, deck.aspectRatio),
+          );
         }}
         onExportGoogleSlides={async () => {
           const slides = deck.slides.map((s) => ({
@@ -984,7 +1022,9 @@ export default function DeckEditor() {
           if (!isUniformSize(deck.slides, deck.aspectRatio)) {
             throw new Error(t("deckEditor.mixedSizesExport"));
           }
-          return exportDeckToGoogleSlides(deck.title, slides, deck.aspectRatio);
+          return withExportStage(() =>
+            exportDeckToGoogleSlides(deck.title, slides, deck.aspectRatio),
+          );
         }}
         aspectRatio={deck.aspectRatio}
         deckKind={deck.kind}
@@ -995,11 +1035,13 @@ export default function DeckEditor() {
           if (!currentSlide) return;
           const index = deck.slides.findIndex((s) => s.id === currentSlide.id);
           const dims = getSlideDims(currentSlide, deck.aspectRatio);
-          await exportSlideAsPng(
-            deck.title,
-            { id: currentSlide.id, ...dims },
-            Math.max(index, 0),
-            deck.slides.length,
+          await withExportStage(() =>
+            exportSlideAsPng(
+              deck.title,
+              { id: currentSlide.id, ...dims },
+              Math.max(index, 0),
+              deck.slides.length,
+            ),
           );
         }}
         onExportPngZip={async () => {
@@ -1009,12 +1051,14 @@ export default function DeckEditor() {
             });
             return;
           }
-          await exportSlidesAsZip(
-            deck.title,
-            deck.slides.map((s) => ({
-              id: s.id,
-              ...getSlideDims(s, deck.aspectRatio),
-            })),
+          await withExportStage(() =>
+            exportSlidesAsZip(
+              deck.title,
+              deck.slides.map((s) => ({
+                id: s.id,
+                ...getSlideDims(s, deck.aspectRatio),
+              })),
+            ),
           );
         }}
         onSetAspectRatio={(ratio: AspectRatio) => {
@@ -1079,6 +1123,30 @@ export default function DeckEditor() {
               </DndContext>
             </div>
           </>
+        )}
+
+        {/* Agent-triggered PNG export: renders requested slides offscreen and
+            answers the export-asset-images action with hosted URLs. */}
+        <PngExportListener
+          deck={deck}
+          designSystem={deck.designSystemId ? designSystem : undefined}
+        />
+
+        {/* Library-grid thumbnail: re-rasterized after first-slide edits. */}
+        <PreviewThumbnailGenerator
+          deck={deck}
+          designSystem={deck.designSystemId ? designSystem : undefined}
+          canEdit={canEdit}
+        />
+
+        {/* Full-deck offscreen render backing DOM-capture exports while the
+            rail keeps only nearby slides mounted. */}
+        {exportStageActive && (
+          <OffscreenSlideStage
+            slides={deck.slides}
+            deck={deck}
+            designSystem={deck.designSystemId ? designSystem : undefined}
+          />
         )}
 
         {showQuestionFlow && (

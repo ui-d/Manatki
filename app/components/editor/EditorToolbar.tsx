@@ -70,11 +70,14 @@ import {
   MAX_SLIDE_DIM,
   MIN_SLIDE_DIM,
   SIZE_PRESETS,
+  SIZE_PRESET_CATEGORIES,
   SIZE_PRESET_VALUES,
   getSlideDims,
   isValidSlideDims,
+  presetsInCategory,
   type DeckKind,
   type SizePreset,
+  type SizePresetCategory,
   type SlideSize,
 } from "@/lib/slide-size";
 import { parseUploadResponse } from "@/lib/upload-response";
@@ -326,7 +329,7 @@ export default function EditorToolbar({
 
   // Live save state for the toolbar indicator, so users always see whether
   // their work has committed (a lost-deck report motivated surfacing this).
-  const { saving } = useSaveState();
+  const { saving, error: saveError } = useSaveState();
   const [offline, setOffline] = useState(
     typeof navigator !== "undefined" ? !navigator.onLine : false,
   );
@@ -977,6 +980,7 @@ graph TD
         <SaveStatusIndicator
           saving={saving}
           offline={offline}
+          error={saveError}
           className="flex-shrink-0 mr-1"
         />
       )}
@@ -1162,9 +1166,31 @@ graph TD
   );
 }
 
-/** Per-slide canvas-size picker shown in social projects: named presets plus
- *  a custom width×height entry. Emits the materialized size via
- *  onSetSlideSize; presets are stored with their key for display. */
+const SIZE_CATEGORY_LABEL_KEYS: Record<SizePresetCategory, string> = {
+  posts: "editorToolbar.sizeCategoryPosts",
+  vertical: "editorToolbar.sizeCategoryVertical",
+  banners: "editorToolbar.sizeCategoryBanners",
+  web: "editorToolbar.sizeCategoryWeb",
+  ads: "editorToolbar.sizeCategoryAds",
+};
+
+/** Localized preset label; falls back to the table's English label when a
+ *  newly-added preset has no `editorToolbar.sizePreset.<id>` key yet. */
+function presetLabel(
+  t: ReturnType<typeof useT>,
+  key: SizePreset,
+): string {
+  const i18nKey = `editorToolbar.sizePreset.${key}`;
+  const translated = t(i18nKey);
+  return translated && translated !== i18nKey
+    ? translated
+    : SIZE_PRESETS[key].label;
+}
+
+/** Per-slide canvas-size picker shown in social projects: named presets
+ *  grouped by category plus a custom width×height entry. Emits the
+ *  materialized size via onSetSlideSize; presets are stored with their key
+ *  for display. */
 function SlideSizePicker({
   currentSlide,
   aspectRatio,
@@ -1205,34 +1231,44 @@ function SlideSizePicker({
       <div className="px-3 py-1.5 text-[10px] font-medium text-white/30 uppercase tracking-wider">
         {t("editorToolbar.slideSize")}
       </div>
-      <div className="px-3 pb-2 grid grid-cols-2 gap-1">
-        {SIZE_PRESET_VALUES.map((key) => {
-          const preset = SIZE_PRESETS[key];
-          const active = activePreset === key;
-          return (
-            <Tooltip key={key}>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => applyPreset(key)}
-                  className={`px-1.5 py-1 rounded text-[10px] font-medium border text-left truncate ${
-                    active
-                      ? "bg-[#609FF8]/20 text-[#609FF8] border-[#609FF8]/30"
-                      : "text-white/40 hover:text-white/70 hover:bg-white/[0.04] border-transparent"
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {t("editorToolbar.setSlideSize", {
-                  label: preset.label,
-                  width: preset.width,
-                  height: preset.height,
-                })}
-              </TooltipContent>
-            </Tooltip>
-          );
-        })}
+      <div className="max-h-64 overflow-y-auto">
+        {SIZE_PRESET_CATEGORIES.map((category) => (
+          <div key={category}>
+            <div className="px-3 pt-1 pb-0.5 text-[9px] font-medium text-white/20 uppercase tracking-wider">
+              {t(SIZE_CATEGORY_LABEL_KEYS[category])}
+            </div>
+            <div className="px-3 pb-1.5 grid grid-cols-2 gap-1">
+              {presetsInCategory(category).map((key) => {
+                const preset = SIZE_PRESETS[key];
+                const label = presetLabel(t, key);
+                const active = activePreset === key;
+                return (
+                  <Tooltip key={key}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => applyPreset(key)}
+                        className={`px-1.5 py-1 rounded text-[10px] font-medium border text-left truncate ${
+                          active
+                            ? "bg-[#609FF8]/20 text-[#609FF8] border-[#609FF8]/30"
+                            : "text-white/40 hover:text-white/70 hover:bg-white/[0.04] border-transparent"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {t("editorToolbar.setSlideSize", {
+                        label,
+                        width: preset.width,
+                        height: preset.height,
+                      })}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
       <div className="px-3 pb-2.5 flex items-center gap-1.5">
         <span className="text-[10px] text-white/30">

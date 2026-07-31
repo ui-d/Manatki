@@ -230,6 +230,23 @@ const runSlidesMigrations = runMigrations(
   );
   CREATE INDEX IF NOT EXISTS uploaded_assets_owner_created_idx ON uploaded_assets (owner_email, created_at)`,
     },
+    // v21: optimistic-concurrency revision for deck blob writes. Every
+    // read-modify-write of decks.data goes through casUpdateDeck
+    // (actions/_deck-write.ts), which guards the UPDATE with
+    // `WHERE rev = <value read>` and bumps it — the in-process deck lock
+    // cannot serialise writers across serverless instances.
+    {
+      version: 21,
+      name: "slides-decks-rev-column",
+      sql: `ALTER TABLE decks ADD COLUMN IF NOT EXISTS rev INTEGER NOT NULL DEFAULT 0`,
+    },
+    // v22: hosted first-slide preview thumbnail for the library grid — a URL
+    // only, never image bytes (blobs live in file storage).
+    {
+      version: 22,
+      name: "slides-decks-preview-url-column",
+      sql: `ALTER TABLE decks ADD COLUMN IF NOT EXISTS preview_url TEXT`,
+    },
   ],
   { table: "slides_migrations" },
 );

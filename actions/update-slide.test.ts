@@ -43,7 +43,9 @@ const mockDb = {
   update: () => ({
     set: (values: { data?: string; updatedAt?: string }) => {
       lastUpdateSet = values;
-      return { where: async () => ({ rowsAffected: 1 }) };
+      return {
+        where: () => ({ returning: async () => [{ id: "deck-1" }] }),
+      };
     },
   }),
   transaction: async (callback: (tx: any) => Promise<unknown>) =>
@@ -65,6 +67,7 @@ vi.mock("../server/db/index.js", () => ({
 
 vi.mock("drizzle-orm", () => ({
   eq: (...args: unknown[]) => ({ eq: args }),
+  and: (...args: unknown[]) => ({ and: args }),
   sql: vi.fn((strings, ...values) => ({ strings, values })),
 }));
 

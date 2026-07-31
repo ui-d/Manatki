@@ -55,7 +55,11 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { Deck } from "@/context/DeckContext";
 import { useDecks } from "@/context/DeckContext";
-import { getPresetSize, type DeckKind } from "@/lib/slide-size";
+import {
+  getPresetSize,
+  SIZE_PRESET_VALUES,
+  type DeckKind,
+} from "@/lib/slide-size";
 import { useAgentGenerating } from "@/hooks/use-agent-generating";
 import { useDesignSystems } from "@/hooks/use-design-systems";
 import { useWorkspaceDefaults } from "@/hooks/use-workspace-defaults";
@@ -571,10 +575,13 @@ export default function Index() {
             },
             {
               label: t("home.socialFormatsStory"),
-              value: "one vertical story / Reel cover (ig-story)",
+              value: "one vertical story / Reel / TikTok cover (ig-story)",
             },
           ],
-          allowFreeText: false,
+          // Free text so any of the preset formats (YouTube thumbnails,
+          // Pinterest pins, display ads, …) can be requested directly instead
+          // of hardcoding one option per preset here.
+          allowFreeText: true,
         })
       : await askUserQuestion({
           question: t("home.deckLengthQuestion"),
@@ -649,7 +656,7 @@ export default function Index() {
           "",
           "PROJECT KIND: social — this is a social-media / marketing asset project, NOT a presentation.",
           "The project was created with kind: \"social\" and a default canvas of 1080x1080 (ig-square).",
-          "Each asset is one slide with its OWN canvas size. Pass `sizePreset` on every `add-slide` call (ig-square, ig-portrait, ig-story, og-banner, x-post, linkedin-banner) or explicit `width`+`height` pixels for custom banners.",
+          `Each asset is one slide with its OWN canvas size. Pass \`sizePreset\` on every \`add-slide\` call (${SIZE_PRESET_VALUES.join(", ")}) or explicit \`width\`+\`height\` pixels for custom banners.`,
           "Follow the `create-social-assets` skill for per-format HTML templates and type scale — social canvases are ~2x larger than deck canvases, so fonts must scale up accordingly.",
           "Do not add presenter-style title/agenda/closing slides. Every asset must stand alone.",
         ].join("\n")
@@ -1011,7 +1018,7 @@ export default function Index() {
                 <DeckCard
                   key={deck.id}
                   deck={deck}
-                  onDelete={(id) => setDeckToDelete(id)}
+                  onDelete={setDeckToDelete}
                   onRename={handleRename}
                   onDuplicate={handleDuplicate}
                   onToggleStar={handleToggleStar}

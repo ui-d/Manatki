@@ -10,7 +10,7 @@ import type { Deck } from "@/context/DeckContext";
 
 export default function Presentation() {
   const { id } = useParams<{ id: string }>();
-  const { getDeck, loading } = useDecks();
+  const { getDeck, loading, ensureFullDeck } = useDecks();
   const [fallbackDeck, setFallbackDeck] = useState<Deck | null>(null);
   const [fallbackState, setFallbackState] = useState<
     "idle" | "loading" | "missing"
@@ -19,6 +19,13 @@ export default function Presentation() {
   const [searchParams] = useSearchParams();
   const contextDeck = getDeck(id || "");
   const deck = contextDeck ?? fallbackDeck;
+
+  // A first-slide-only list copy must be full-fetched before presenting.
+  useEffect(() => {
+    if (contextDeck?.partialSlides && id) {
+      void ensureFullDeck(id);
+    }
+  }, [contextDeck?.partialSlides, id, ensureFullDeck]);
 
   useEffect(() => {
     if (!id || loading || contextDeck) {

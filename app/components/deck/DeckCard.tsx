@@ -13,7 +13,7 @@ import {
   IconStar,
   IconStarFilled,
 } from "@tabler/icons-react";
-import { useState, useRef, useEffect } from "react";
+import { memo, useState, useRef, useEffect } from "react";
 import { Link } from "react-router";
 
 import {
@@ -41,7 +41,7 @@ interface DeckCardProps {
   onSetWorkspaceDefault?: (id: string, isDefault: boolean) => void;
 }
 
-export default function DeckCard({
+function DeckCard({
   deck,
   onDelete,
   onRename,
@@ -108,14 +108,26 @@ export default function DeckCard({
           if (isRenaming) e.preventDefault();
         }}
       >
-        {/* Slide Preview */}
+        {/* Slide Preview — a stored thumbnail image is far cheaper than a
+            live full-resolution slide DOM per card; the DOM render remains
+            the fallback until the editor generates one. */}
         <div className="overflow-hidden relative">
-          {firstSlide && (
-            <SlideRenderer
-              slide={firstSlide}
-              className="rounded-none"
-              aspectRatio={deck.aspectRatio}
+          {deck.previewUrl ? (
+            <img
+              src={deck.previewUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="block w-full h-auto"
             />
+          ) : (
+            firstSlide && (
+              <SlideRenderer
+                slide={firstSlide}
+                className="rounded-none"
+                aspectRatio={deck.aspectRatio}
+              />
+            )
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-[hsl(240,5%,8%)] via-transparent to-transparent opacity-60" />
         </div>
@@ -146,10 +158,16 @@ export default function DeckCard({
           </div>
           <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
             <span className="shrink-0 whitespace-nowrap">
-              {deck.slides.length}{" "}
+              {/* slideCount survives first-slide-only list payloads where
+                  deck.slides holds just the preview slide. */}
+              {deck.slideCount ?? deck.slides.length}{" "}
               {isSocial
-                ? t("home.assetCount", { count: deck.slides.length })
-                : t("home.slideCount", { count: deck.slides.length })}
+                ? t("home.assetCount", {
+                    count: deck.slideCount ?? deck.slides.length,
+                  })
+                : t("home.slideCount", {
+                    count: deck.slideCount ?? deck.slides.length,
+                  })}
             </span>
             {isSocial && (
               <span className="inline-flex shrink-0 items-center gap-1 rounded border border-[#EC4899]/40 px-1.5 py-0.5 text-[10px] text-[#EC4899]">
@@ -306,3 +324,10 @@ export default function DeckCard({
     </div>
   );
 }
+
+/**
+ * Memoized: the library grid re-renders on every decks-state update, but a
+ * card only changes when its own deck object (kept referentially stable for
+ * untouched decks) or handler props change.
+ */
+export default memo(DeckCard);

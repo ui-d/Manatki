@@ -89,6 +89,7 @@ export default defineAction({
       visibility: row.visibility,
       createdByMe: ownerEmail ? row.ownerEmail === ownerEmail : false,
       designSystemId: row.designSystemId ?? null,
+      previewUrl: row.previewUrl ?? null,
       slideCount: slides.length,
       slideNumbering:
         'User-visible slide numbers are 1-based and match the UI. "Slide 1" means slideNumber 1 / zeroBasedIndex 0. Use slideId for edits.',

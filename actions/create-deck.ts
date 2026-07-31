@@ -27,7 +27,13 @@ import {
   SIZE_PRESET_VALUES,
 } from "../shared/slide-size.js";
 import { getDeckUrl } from "./_app-url.js";
-import { SlideSizeSchema, resolveRequestedSlideSize } from "./_deck-write.js";
+import {
+  casUpdateDeck,
+  deckRevOf,
+  resolveRequestedSlideSize,
+  retryDeckWrite,
+  SlideSizeSchema,
+} from "./_deck-write.js";
 
 const ReuseLabelSchema = z
   .object({
@@ -269,43 +275,42 @@ export default defineAction({
       }
       // Update existing deck — requires editor access.
       await assertAccess("deck", deckId, "editor");
-      const existing = await db
-        .select()
-        .from(schema.decks)
-        .where(eq(schema.decks.id, deckId))
-        .limit(1);
-      if (!existing[0]) {
-        throw new Error(`Deck not found: ${deckId}`);
-      }
-      await createDeckVersionSnapshot(
-        {
-          id: existing[0].id,
-          title: existing[0].title,
-          data: existing[0].data,
-          ownerEmail: existing[0].ownerEmail,
-        },
-        { force: true, label: "Before bulk replace" },
-      );
-      const prevData = existing[0] ? JSON.parse(existing[0].data) : {};
-      const data = {
-        title,
-        slides,
-        updatedAt: now,
-        aspectRatio: aspectRatio ?? prevData.aspectRatio,
-        kind: kind ?? prevData.kind,
-        defaultSize: defaultSize ?? prevData.defaultSize,
-        designSystemId: designSystemId ?? prevData.designSystemId,
-        creativeContext: creativeContextProvenance,
-      };
-      await db
-        .update(schema.decks)
-        .set({
+      await retryDeckWrite(deckId, async () => {
+        const existing = await db
+          .select()
+          .from(schema.decks)
+          .where(eq(schema.decks.id, deckId))
+          .limit(1);
+        if (!existing[0]) {
+          throw new Error(`Deck not found: ${deckId}`);
+        }
+        await createDeckVersionSnapshot(
+          {
+            id: existing[0].id,
+            title: existing[0].title,
+            data: existing[0].data,
+            ownerEmail: existing[0].ownerEmail,
+          },
+          { force: true, label: "Before bulk replace" },
+        );
+        const prevData = existing[0] ? JSON.parse(existing[0].data) : {};
+        const data = {
+          title,
+          slides,
+          updatedAt: now,
+          aspectRatio: aspectRatio ?? prevData.aspectRatio,
+          kind: kind ?? prevData.kind,
+          defaultSize: defaultSize ?? prevData.defaultSize,
+          designSystemId: designSystemId ?? prevData.designSystemId,
+          creativeContext: creativeContextProvenance,
+        };
+        await casUpdateDeck(db, deckId, deckRevOf(existing[0]), {
           title,
           data: JSON.stringify(data),
           designSystemId: designSystemId ?? existing[0]?.designSystemId ?? null,
           updatedAt: now,
-        })
-        .where(eq(schema.decks.id, deckId));
+        });
+      });
       // Broadcast to open editors (in-process SSE) + application-state
       // refresh signal (cross-process polling fallback for serverless).
       notifyClients(deckId);

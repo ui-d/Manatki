@@ -8,6 +8,7 @@ import { getDb, schema } from "../server/db/index.js";
 import { notifyClients } from "../server/handlers/decks.js";
 import { createDeckVersionSnapshot } from "../server/lib/deck-versions.js";
 import { ASPECT_RATIO_VALUES } from "../shared/aspect-ratios.js";
+import { casUpdateDeck, deckRevOf, retryDeckWrite } from "./_deck-write.js";
 
 export default defineAction({
   description:
@@ -19,6 +20,7 @@ export default defineAction({
   }),
   run: async ({ deckId, aspectRatio }) => {
     await assertAccess("deck", deckId, "editor");
+    const now = await retryDeckWrite(deckId, async () => {
     const db = getDb();
     const rows = await db
       .select()
@@ -26,6 +28,7 @@ export default defineAction({
       .where(eq(schema.decks.id, deckId))
       .limit(1);
     if (!rows.length) throw new Error(`Deck not found: ${deckId}`);
+    const rev = deckRevOf(rows[0]);
     await createDeckVersionSnapshot(
       {
         id: rows[0].id,
@@ -37,12 +40,14 @@ export default defineAction({
     );
     const data = JSON.parse(rows[0].data);
     data.aspectRatio = aspectRatio;
-    const now = new Date().toISOString();
-    data.updatedAt = now;
-    await db
-      .update(schema.decks)
-      .set({ data: JSON.stringify(data), updatedAt: now })
-      .where(eq(schema.decks.id, deckId));
+    const writeNow = new Date().toISOString();
+    data.updatedAt = writeNow;
+    await casUpdateDeck(db, deckId, rev, {
+      data: JSON.stringify(data),
+      updatedAt: writeNow,
+    });
+    return writeNow;
+    });
     notifyClients(deckId);
     await writeAppState("refresh-signal", {
       ts: now,
