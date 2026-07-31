@@ -14,16 +14,25 @@ const mockInsertValues = vi.hoisted(() =>
 );
 const mockDeleteWhere = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 const mockGetRouterParam = vi.hoisted(() => vi.fn());
+const mockGetQuery = vi.hoisted(() =>
+  vi.fn((..._args: unknown[]) => ({}) as Record<string, unknown>),
+);
 const selectRows = vi.hoisted(() => ({ current: [] as unknown[] }));
+const updatedSets = vi.hoisted(() => ({ current: [] as unknown[] }));
 
 vi.mock("h3", () => ({
   defineEventHandler: (handler: unknown) => handler,
   getRouterParam: (...args: unknown[]) => mockGetRouterParam(...args),
+  getQuery: (...args: unknown[]) => mockGetQuery(...args),
   setResponseStatus: (...args: unknown[]) => mockSetResponseStatus(...args),
 }));
 
 vi.mock("drizzle-orm", () => ({
+  and: vi.fn(),
+  desc: vi.fn(),
   eq: vi.fn(),
+  gt: vi.fn(),
+  isNull: vi.fn(),
   lt: vi.fn(),
 }));
 
@@ -46,7 +55,15 @@ vi.mock("../db", () => ({
       from: vi.fn(() => ({
         where: vi.fn(() => ({
           limit: vi.fn(async () => selectRows.current),
+          orderBy: vi.fn(async () => selectRows.current),
         })),
+      })),
+    })),
+    update: vi.fn(() => ({
+      set: vi.fn((values: unknown) => ({
+        where: vi.fn(async () => {
+          updatedSets.current.push(values);
+        }),
       })),
     })),
   }),
@@ -57,6 +74,9 @@ vi.mock("../db", () => ({
       slides: "slides_col",
       aspectRatio: "aspect_ratio_col",
       createdAt: "created_at_col",
+      ownerEmail: "owner_email_col",
+      deckId: "deck_id_col",
+      revokedAt: "revoked_at_col",
     },
   },
 }));
@@ -68,7 +88,12 @@ vi.mock("./request-auth-context.js", () => ({
     mockWithSlidesRequestContext(...args),
 }));
 
-import { getSharedDeck, shareDeck } from "./share";
+import {
+  getSharedDeck,
+  listShareLinks,
+  revokeShareLink,
+  shareDeck,
+} from "./share";
 
 describe("shareDeck", () => {
   beforeEach(() => {
@@ -240,5 +265,141 @@ describe("getSharedDeck", () => {
       height: 1920,
       preset: "ig-story",
     });
+  });
+
+  it("returns 404 for revoked links, identical to missing ones", async () => {
+    selectRows.current = [
+      {
+        token: "token-1",
+        title: "Revoked deck",
+        slides: JSON.stringify([]),
+        aspectRatio: null,
+        createdAt: new Date().toISOString(),
+        revokedAt: new Date().toISOString(),
+      },
+    ];
+
+    const result = (await getSharedDeck({} as any)) as Record<string, unknown>;
+
+    expect(mockSetResponseStatus).toHaveBeenCalledWith({}, 404);
+    expect(result.error).toBe("Shared presentation not found or has expired");
+  });
+});
+
+describe("revokeShareLink", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    selectRows.current = [];
+    updatedSets.current = [];
+    mockGetRouterParam.mockReturnValue("token-1");
+    mockResolveSlidesRequestAuthContext.mockResolvedValue({
+      email: "owner@example.com",
+    });
+    mockWithSlidesRequestContext.mockImplementation(async (_event, callback) =>
+      callback(),
+    );
+  });
+
+  it("lets the minting owner revoke their link", async () => {
+    selectRows.current = [
+      {
+        token: "token-1",
+        ownerEmail: "owner@example.com",
+        deckId: "deck-1",
+        revokedAt: null,
+      },
+    ];
+
+    const result = (await revokeShareLink({} as any)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(result.success).toBe(true);
+    expect(updatedSets.current).toHaveLength(1);
+    expect(
+      (updatedSets.current[0] as { revokedAt: string }).revokedAt,
+    ).toBeTruthy();
+  });
+
+  it("404s for a non-owner without deck access, and writes nothing", async () => {
+    selectRows.current = [
+      {
+        token: "token-1",
+        ownerEmail: "someone-else@example.com",
+        deckId: "deck-1",
+        revokedAt: null,
+      },
+    ];
+    const { ForbiddenError } = await import("@agent-native/core/sharing");
+    mockAssertAccess.mockRejectedValue(new (ForbiddenError as any)("no"));
+
+    const result = (await revokeShareLink({} as any)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(mockSetResponseStatus).toHaveBeenCalledWith({}, 404);
+    expect(result.error).toBe("Share link not found");
+    expect(updatedSets.current).toHaveLength(0);
+  });
+
+  it("lets a deck admin revoke a link minted by someone else", async () => {
+    selectRows.current = [
+      {
+        token: "token-1",
+        ownerEmail: "someone-else@example.com",
+        deckId: "deck-1",
+        revokedAt: null,
+      },
+    ];
+    mockAssertAccess.mockResolvedValue({ resource: {} });
+
+    const result = (await revokeShareLink({} as any)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(result.success).toBe(true);
+    expect(mockAssertAccess).toHaveBeenCalledWith("deck", "deck-1", "admin");
+    expect(updatedSets.current).toHaveLength(1);
+  });
+});
+
+describe("listShareLinks", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    selectRows.current = [];
+    mockGetQuery.mockReturnValue({ deckId: "deck-1" });
+    mockResolveSlidesRequestAuthContext.mockResolvedValue({
+      email: "owner@example.com",
+    });
+    mockWithSlidesRequestContext.mockImplementation(async (_event, callback) =>
+      callback(),
+    );
+  });
+
+  it("returns active links for a deck the caller administers", async () => {
+    mockAssertAccess.mockResolvedValue({ resource: {} });
+    selectRows.current = [
+      { token: "token-1", createdAt: "2026-07-31T00:00:00.000Z" },
+    ];
+
+    const result = (await listShareLinks({} as any)) as Record<string, unknown>;
+
+    expect(mockAssertAccess).toHaveBeenCalledWith("deck", "deck-1", "admin");
+    expect(result.links).toEqual([
+      { token: "token-1", createdAt: "2026-07-31T00:00:00.000Z" },
+    ]);
+  });
+
+  it("propagates access failures without listing", async () => {
+    const { ForbiddenError } = await import("@agent-native/core/sharing");
+    mockAssertAccess.mockRejectedValue(new (ForbiddenError as any)("no"));
+
+    const result = (await listShareLinks({} as any)) as Record<string, unknown>;
+
+    expect(mockSetResponseStatus).toHaveBeenCalledWith({}, 403);
+    expect(result.links).toBeUndefined();
   });
 });

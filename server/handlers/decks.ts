@@ -1,9 +1,18 @@
+import { eq } from "drizzle-orm";
 import { defineEventHandler, setResponseStatus, createEventStream } from "h3";
 
+import { getDb, schema } from "../db/index.js";
 import { resolveSlidesRequestAuthContext } from "./request-auth-context.js";
 
 // --- SSE for change notifications ---
 type SSEPush = (data: string) => void;
+
+/** One subscribed browser tab, with the identity needed for scoped fan-out. */
+interface SSEClient {
+  push: SSEPush;
+  email: string;
+  orgId: string | null;
+}
 
 // CRITICAL: pin the client registry to globalThis.
 //
@@ -14,15 +23,29 @@ type SSEPush = (data: string) => void;
 // SSE route and the actions two different Sets, so broadcasts from actions
 // would never reach connected clients. Pinning to globalThis forces a single
 // shared registry regardless of how this module was loaded.
-const GLOBAL_KEY = "__slidesSSEClients" as const;
+// (V2 suffix: the entry shape changed from bare push fns to SSEClient
+// records; a stale V1 Set from an old module instance must not mix in.)
+const GLOBAL_KEY = "__slidesSSEClientsV2" as const;
 type GlobalWithClients = typeof globalThis & {
-  [GLOBAL_KEY]?: Set<SSEPush>;
+  [GLOBAL_KEY]?: Set<SSEClient>;
 };
 const globalRef = globalThis as GlobalWithClients;
 if (!globalRef[GLOBAL_KEY]) {
-  globalRef[GLOBAL_KEY] = new Set<SSEPush>();
+  globalRef[GLOBAL_KEY] = new Set<SSEClient>();
 }
-const sseClients: Set<SSEPush> = globalRef[GLOBAL_KEY]!;
+const sseClients: Set<SSEClient> = globalRef[GLOBAL_KEY]!;
+
+/**
+ * Who is allowed to receive a broadcast about a deck. Callers that already
+ * hold the deck row (every write action does) should pass this so delivery
+ * needs no extra DB read — and MUST pass it for deck-deleted, where the row
+ * is already gone.
+ */
+export interface NotifyAudience {
+  ownerEmail: string;
+  orgId?: string | null;
+  visibility?: string | null;
+}
 
 /**
  * Options for a deck-change broadcast. All fields are optional and additive so
@@ -35,20 +58,25 @@ export interface NotifyClientsOptions {
   slideId?: string;
   /** Who made the change: "agent" for AI writes, "human" otherwise. */
   actor?: "agent" | "human";
+  /** Delivery scope; loaded from the deck row when omitted. */
+  audience?: NotifyAudience;
 }
 
 /**
- * Broadcast a deck change to all connected UI clients. Exported so agent
- * actions (add-slide, update-slide, create-deck) can notify the frontend
- * after a direct DB write — otherwise the UI has no way to know the deck
- * was modified until the next 3-second poll, and won't notice content
- * changes to slides inside an existing deck at all.
+ * Broadcast a deck change to connected UI clients WITH ACCESS to the deck.
+ * Exported so agent actions (add-slide, update-slide, create-deck) can notify
+ * the frontend after a direct DB write.
+ *
+ * Delivery is scoped (H6): a client receives the event only if they own the
+ * deck, share its org while visibility is "org", or hold a per-user/per-org
+ * grant in deck_shares. Previously every authenticated user received every
+ * deck id — a cross-tenant activity leak that also triggered a full get-deck
+ * refetch in every open browser.
  *
  * The second argument accepts either a legacy `type` string (backwards compat
  * with callers like `notifyClients(id, "deck-deleted")`) or an options object
- * carrying `slideId` / `actor` so the client can attribute agent edits to a
- * specific slide. The wire payload always includes `type` and `deckId`; extra
- * fields are only present when supplied.
+ * carrying `slideId` / `actor` / `audience`. The wire payload always includes
+ * `type` and `deckId`; extra fields are only present when supplied.
  */
 export function notifyClients(
   deckId: string,
@@ -66,11 +94,103 @@ export function notifyClients(
       `[slides-sse] notifyClients deck=${deckId} type=${type} slide=${options.slideId ?? "-"} actor=${options.actor ?? "-"} clients=${sseClients.size}`,
     );
   }
-  for (const push of sseClients) {
+  if (sseClients.size === 0) return;
+  void deliverScoped(deckId, message, options.audience).catch(
+    (err: unknown) => {
+      // A failed delivery pass only delays the affected tabs until their
+      // next poll/resync — never let it take down the write path.
+      console.warn(
+        "[slides-sse] scoped delivery failed:",
+        err instanceof Error ? err.message : err,
+      );
+    },
+  );
+}
+
+async function deliverScoped(
+  deckId: string,
+  message: string,
+  audience?: NotifyAudience,
+): Promise<void> {
+  let aud = audience;
+  if (!aud) {
+    const db = getDb();
+    const rows = await db
+      .select({
+        ownerEmail: schema.decks.ownerEmail,
+        orgId: schema.decks.orgId,
+        visibility: schema.decks.visibility,
+      })
+      .from(schema.decks)
+      .where(eq(schema.decks.id, deckId))
+      .limit(1);
+    // Row gone (deleted deck) and no audience supplied: deliver to no one
+    // rather than to everyone — stragglers catch up via poll/resync.
+    if (!rows[0]) return;
+    aud = rows[0];
+  }
+
+  const ownerEmail = aud.ownerEmail?.trim().toLowerCase() ?? "";
+  const recipients: SSEClient[] = [];
+  const undecided: SSEClient[] = [];
+  for (const client of sseClients) {
+    const email = client.email.toLowerCase();
+    if (email === ownerEmail) {
+      recipients.push(client);
+    } else if (
+      aud.visibility === "org" &&
+      aud.orgId &&
+      client.orgId === aud.orgId
+    ) {
+      recipients.push(client);
+    } else {
+      undecided.push(client);
+    }
+  }
+
+  // Per-user / per-org grants: one indexed query per broadcast, only when
+  // someone is still undecided. Any role counts — a viewer grant is enough
+  // to be told the deck changed.
+  if (undecided.length > 0) {
+    const db = getDb();
+    const shares = await db
+      .select({
+        principalType: schema.deckShares.principalType,
+        principalId: schema.deckShares.principalId,
+      })
+      .from(schema.deckShares)
+      .where(eq(schema.deckShares.resourceId, deckId));
+    if (shares.length > 0) {
+      const userGrants = new Set<string>();
+      const orgGrants = new Set<string>();
+      for (const share of shares) {
+        if (share.principalType === "user") {
+          userGrants.add(String(share.principalId).toLowerCase());
+        } else if (share.principalType === "org") {
+          orgGrants.add(String(share.principalId));
+        }
+      }
+      for (const client of undecided) {
+        if (
+          userGrants.has(client.email.toLowerCase()) ||
+          (client.orgId && orgGrants.has(client.orgId))
+        ) {
+          recipients.push(client);
+        }
+      }
+    }
+  }
+
+  if (process.env.DEBUG_SLIDES_SSE) {
+    console.log(
+      `[slides-sse] deliver deck=${deckId} recipients=${recipients.length}/${sseClients.size}`,
+    );
+  }
+  for (const client of recipients) {
     try {
-      push(message);
+      client.push(message);
     } catch {
-      sseClients.delete(push);
+      sseClients.delete(client);
     }
   }
 }
@@ -108,11 +228,15 @@ export const deckEvents = defineEventHandler(async (event) => {
   // Send initial connected event
   eventStream.push(JSON.stringify({ type: "connected" }));
 
-  // Register this client's push function
-  const push: SSEPush = (data: string) => {
-    eventStream.push(data);
+  // Register this client with the identity used for scoped delivery.
+  const client: SSEClient = {
+    push: (data: string) => {
+      eventStream.push(data);
+    },
+    email: session.email,
+    orgId: session.orgId ?? null,
   };
-  sseClients.add(push);
+  sseClients.add(client);
 
   const retireTimer = setTimeout(() => {
     void eventStream.close();
@@ -120,7 +244,7 @@ export const deckEvents = defineEventHandler(async (event) => {
 
   eventStream.onClosed(() => {
     clearTimeout(retireTimer);
-    sseClients.delete(push);
+    sseClients.delete(client);
   });
 
   return eventStream.send();

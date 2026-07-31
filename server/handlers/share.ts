@@ -6,10 +6,16 @@ import { toSharedDeckSlide } from "@shared/api";
 import type {
   ShareDeckRequest,
   ShareDeckResponse,
+  ShareLinkSummary,
   SharedDeckResponse,
 } from "@shared/api";
-import { eq, lt } from "drizzle-orm";
-import { defineEventHandler, getRouterParam, setResponseStatus } from "h3";
+import { and, desc, eq, gt, isNull, lt } from "drizzle-orm";
+import {
+  defineEventHandler,
+  getQuery,
+  getRouterParam,
+  setResponseStatus,
+} from "h3";
 
 import { getDb, schema } from "../db";
 import {
@@ -44,12 +50,16 @@ export const shareDeck = defineEventHandler(async (event) => {
 
   return withSlidesRequestContext(
     event,
-    async () => createShareLink(event, deck.id),
+    async () => createShareLink(event, deck.id, session.email as string),
     session,
   );
 });
 
-async function createShareLink(event: any, deckId: string) {
+async function createShareLink(
+  event: any,
+  deckId: string,
+  ownerEmail: string,
+) {
   const db = getDb();
   let storedDeck: any;
   let title = "Untitled";
@@ -87,6 +97,8 @@ async function createShareLink(event: any, deckId: string) {
     slides: JSON.stringify({ kind, slides }),
     aspectRatio: storedDeck.aspectRatio ?? null,
     createdAt: now,
+    ownerEmail,
+    deckId,
   });
 
   // Prune expired rows opportunistically (no await — background)
@@ -127,6 +139,13 @@ export const getSharedDeck = defineEventHandler(async (event) => {
     return { error: "Shared presentation not found or has expired" };
   }
 
+  // Revoked links 404 identically to missing ones so a revoked token leaks
+  // nothing about whether it ever existed.
+  if (shared.revokedAt) {
+    setResponseStatus(event, 404);
+    return { error: "Shared presentation not found or has expired" };
+  }
+
   // Check expiry
   const age = Date.now() - new Date(shared.createdAt).getTime();
   if (age > THIRTY_DAYS_MS) {
@@ -152,3 +171,138 @@ export const getSharedDeck = defineEventHandler(async (event) => {
   };
   return response;
 });
+
+/**
+ * GET /api/share?deckId=...
+ * List active (unrevoked, unexpired) snapshot links for a deck. Requires
+ * admin access on the deck — the same bar as creating a link.
+ */
+export const listShareLinks = defineEventHandler(async (event) => {
+  const deckId = String(getQuery(event).deckId ?? "");
+  if (!deckId) {
+    setResponseStatus(event, 400);
+    return { error: "deckId is required" };
+  }
+
+  const session = await resolveSlidesRequestAuthContext(event);
+  if (!session.email) {
+    setResponseStatus(event, 401);
+    return { error: "Unauthorized" };
+  }
+
+  return withSlidesRequestContext(
+    event,
+    async () => {
+      try {
+        await assertAccess("deck", deckId, "admin");
+      } catch (err) {
+        if (err instanceof ForbiddenError) {
+          setResponseStatus(event, err.statusCode);
+          return { error: err.message };
+        }
+        throw err;
+      }
+
+      const db = getDb();
+      const rows = await db
+        .select({
+          token: schema.deckShareLinks.token,
+          createdAt: schema.deckShareLinks.createdAt,
+        })
+        .from(schema.deckShareLinks)
+        .where(
+          and(
+            eq(schema.deckShareLinks.deckId, deckId),
+            isNull(schema.deckShareLinks.revokedAt),
+            gt(
+              schema.deckShareLinks.createdAt,
+              new Date(Date.now() - THIRTY_DAYS_MS).toISOString(),
+            ),
+          ),
+        )
+        .orderBy(desc(schema.deckShareLinks.createdAt));
+
+      const links: ShareLinkSummary[] = rows;
+      return { links };
+    },
+    session,
+  );
+});
+
+/**
+ * DELETE /api/share/:token
+ * Revoke a snapshot link. Allowed for the user who minted it, or anyone
+ * with admin access on the source deck.
+ */
+export const revokeShareLink = defineEventHandler(async (event) => {
+  const token = getRouterParam(event, "token");
+  if (!token) {
+    setResponseStatus(event, 400);
+    return { error: "Token is required" };
+  }
+
+  const session = await resolveSlidesRequestAuthContext(event);
+  if (!session.email) {
+    setResponseStatus(event, 401);
+    return { error: "Unauthorized" };
+  }
+
+  return withSlidesRequestContext(
+    event,
+    async () => {
+      const db = getDb();
+      const rows = await db
+        .select()
+        .from(schema.deckShareLinks)
+        .where(eq(schema.deckShareLinks.token, token))
+        .limit(1);
+      const link = rows[0];
+
+      // 404 for missing AND for permission failures below, so callers
+      // cannot probe which tokens exist.
+      if (!link) {
+        setResponseStatus(event, 404);
+        return { error: "Share link not found" };
+      }
+
+      let allowed = link.ownerEmail === session.email;
+      if (!allowed && link.deckId) {
+        try {
+          await assertAccess("deck", link.deckId, "admin");
+          allowed = true;
+        } catch (err) {
+          if (!(err instanceof ForbiddenError)) throw err;
+        }
+      }
+      if (!allowed) {
+        setResponseStatus(event, 404);
+        return { error: "Share link not found" };
+      }
+
+      await db
+        .update(schema.deckShareLinks)
+        .set({ revokedAt: new Date().toISOString() })
+        .where(eq(schema.deckShareLinks.token, token));
+
+      return { success: true };
+    },
+    session,
+  );
+});
+
+/**
+ * Revoke every share link minted from a deck — called on deck deletion so
+ * public snapshots don't outlive the deck.
+ */
+export async function revokeShareLinksForDeck(deckId: string): Promise<void> {
+  const db = getDb();
+  await db
+    .update(schema.deckShareLinks)
+    .set({ revokedAt: new Date().toISOString() })
+    .where(
+      and(
+        eq(schema.deckShareLinks.deckId, deckId),
+        isNull(schema.deckShareLinks.revokedAt),
+      ),
+    );
+}

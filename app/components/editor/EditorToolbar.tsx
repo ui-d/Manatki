@@ -87,6 +87,7 @@ import { parseUploadResponse } from "@/lib/upload-response";
 import { shortcutLabel } from "@/lib/utils";
 
 import { ExportMenu } from "./ExportMenu";
+import SnapshotLinkTab from "./SnapshotLinkTab";
 interface EditorToolbarProps {
   deck: Deck;
   deckId: string;
@@ -1074,6 +1075,11 @@ graph TD
           )}
           shareTabs={{
             tabs: [
+              {
+                value: "snapshot",
+                label: t("share.snapshotTab"),
+                content: <SnapshotLinkTab deckId={deckId} />,
+              },
               {
                 value: "context",
                 label: "Context",

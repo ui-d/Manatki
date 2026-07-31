@@ -64,6 +64,13 @@ export const deckShareLinks = table("deck_share_links", {
   slides: text("slides").notNull(), // JSON array of slide snapshots
   aspectRatio: text("aspect_ratio"),
   createdAt: text("created_at").notNull().default(now()),
+  // Revocation support (v23): who minted the link and from which deck, so
+  // links can be listed per deck and revoked — including when the deck is
+  // deleted. Rows from before v23 have deckId NULL (unlisted, but their
+  // owner can still not manage them; they expire via the 30-day TTL).
+  ownerEmail: text("owner_email").notNull().default("local@localhost"),
+  deckId: text("deck_id"),
+  revokedAt: text("revoked_at"),
 });
 
 export const uploadedAssets = table("uploaded_assets", {

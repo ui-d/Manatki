@@ -301,6 +301,14 @@ const messages = {
     exportPngError: "PNG के रूप में निर्यात करते समय कुछ गलत हुआ।",
   },
   share: {
+    snapshotTab: "स्नैपशॉट लिंक",
+    snapshotDescription: "इस डेक की स्थिर प्रति का सार्वजनिक केवल-पठन लिंक बनाएं। बाद के संपादन शामिल नहीं होंगे।",
+    activeLinks: "सक्रिय लिंक",
+    revoke: "लिंक रद्द करें",
+    noLinks: "अभी कोई स्नैपशॉट लिंक नहीं है।",
+    expiresNote: "लिंक बनने के 30 दिन बाद समाप्त हो जाते हैं।",
+    loadLinksFailed: "लिंक लोड नहीं हो सके",
+    revokeFailed: "लिंक रद्द नहीं हो सका",
     createFailed: "साझा लिंक नहीं बन सका",
     title: "प्रस्तुति साझा करें",
     cloudUpgradeDescription:

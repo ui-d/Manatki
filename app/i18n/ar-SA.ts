@@ -305,6 +305,14 @@ const messages = {
     exportPngError: "حدث خطأ أثناء التصدير بصيغة PNG.",
   },
   share: {
+    snapshotTab: "رابط اللقطة",
+    snapshotDescription: "أنشئ رابطًا عامًا للقراءة فقط لنسخة مجمّدة من هذا العرض. لن تُدرج التعديلات اللاحقة.",
+    activeLinks: "الروابط النشطة",
+    revoke: "إلغاء الرابط",
+    noLinks: "لا توجد روابط لقطات بعد.",
+    expiresNote: "تنتهي صلاحية الروابط بعد 30 يومًا من إنشائها.",
+    loadLinksFailed: "تعذّر تحميل الروابط",
+    revokeFailed: "تعذّر إلغاء الرابط",
     createFailed: "تعذر إنشاء رابط المشاركة",
     title: "مشاركة العرض التقديمي",
     cloudUpgradeDescription:

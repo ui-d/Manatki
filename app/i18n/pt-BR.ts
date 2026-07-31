@@ -306,6 +306,14 @@ const messages = {
     exportPngError: "Algo deu errado ao exportar como PNG.",
   },
   share: {
+    snapshotTab: "Link de captura",
+    snapshotDescription: "Crie um link público somente leitura para uma cópia congelada desta apresentação. Edições posteriores não são incluídas.",
+    activeLinks: "Links ativos",
+    revoke: "Revogar link",
+    noLinks: "Ainda não há links de captura.",
+    expiresNote: "Os links expiram 30 dias após a criação.",
+    loadLinksFailed: "Falha ao carregar os links",
+    revokeFailed: "Falha ao revogar o link",
     createFailed: "Não foi possível criar o link de compartilhamento",
     title: "Compartilhar apresentação",
     cloudUpgradeDescription:

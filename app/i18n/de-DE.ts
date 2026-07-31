@@ -309,6 +309,14 @@ const messages = {
     exportPngError: "Beim Export als PNG ist etwas schiefgelaufen.",
   },
   share: {
+    snapshotTab: "Snapshot-Link",
+    snapshotDescription: "Erstelle einen öffentlichen, schreibgeschützten Link zu einer eingefrorenen Kopie dieses Decks. Spätere Änderungen sind nicht enthalten.",
+    activeLinks: "Aktive Links",
+    revoke: "Link widerrufen",
+    noLinks: "Noch keine Snapshot-Links.",
+    expiresNote: "Links laufen 30 Tage nach Erstellung ab.",
+    loadLinksFailed: "Links konnten nicht geladen werden",
+    revokeFailed: "Link konnte nicht widerrufen werden",
     createFailed: "Freigabelink konnte nicht erstellt werden",
     title: "Präsentation teilen",
     cloudUpgradeDescription:

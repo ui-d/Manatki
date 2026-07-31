@@ -302,6 +302,14 @@ const messages = {
     exportPngError: "PNG로 내보내는 중 문제가 발생했습니다.",
   },
   share: {
+    snapshotTab: "스냅샷 링크",
+    snapshotDescription: "이 덱의 고정된 사본에 대한 공개 읽기 전용 링크를 만듭니다. 이후 편집 내용은 포함되지 않습니다.",
+    activeLinks: "활성 링크",
+    revoke: "링크 해지",
+    noLinks: "아직 스냅샷 링크가 없습니다.",
+    expiresNote: "링크는 생성 후 30일이 지나면 만료됩니다.",
+    loadLinksFailed: "링크를 불러오지 못했습니다",
+    revokeFailed: "링크를 해지하지 못했습니다",
     createFailed: "공유 링크를 만들 수 없습니다",
     title: "프레젠테이션 공유",
     cloudUpgradeDescription:

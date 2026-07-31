@@ -275,48 +275,14 @@ function cleanNode(node: Node, doc: Document): Node | null {
   return out;
 }
 
-function sanitizeHtmlString(html: string): string {
-  return html
-    .replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (_match, css) => {
-      const safeCss = sanitizeStyleSheet(String(css));
-      return safeCss
-        ? `<style>${safeCss.replace(/<\/style/gi, "<\\/style")}</style>`
-        : "";
-    })
-    .replace(
-      /<(script|iframe|object|embed|form|input|button|select|textarea|meta|base|link|svg|math)\b[\s\S]*?<\/\1>/gi,
-      "",
-    )
-    .replace(
-      /<(script|iframe|object|embed|form|input|button|select|textarea|meta|base|link|svg|math)\b[^>]*\/?>/gi,
-      "",
-    )
-    .replace(/\s+on[a-z][\w:-]*\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/\s+srcdoc\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/\s+srcset\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(
-      /\s+(href|src|xlink:href)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/gi,
-      (match, attr, _raw, dq, sq, bare) => {
-        const value = dq ?? sq ?? bare ?? "";
-        const safe = sanitizeSlideUrl(
-          value,
-          String(attr).toLowerCase() === "src" ? "image" : "link",
-        );
-        return safe ? ` ${attr}="${escapeHtml(safe)}"` : "";
-      },
-    )
-    .replace(
-      /\s+style\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/gi,
-      (_match, _raw, dq, sq, bare) => {
-        const safe = sanitizeStyle(dq ?? sq ?? bare ?? "");
-        return safe ? ` style="${escapeHtml(safe)}"` : "";
-      },
-    );
-}
-
 export function sanitizeSlideHtml(html: string): string {
   if (typeof DOMParser === "undefined") {
-    return sanitizeHtmlString(html);
+    // No DOM available — fail safe by escaping everything rather than
+    // attempting regex-based sanitization (which had known bypass classes:
+    // no-whitespace attribute handlers, unparsed at-rules, deny-list-only
+    // tag stripping). On the server, plugins/sanitizer-dom.ts installs a
+    // happy-dom DOMParser at boot so this branch is normally unreachable.
+    return escapeHtml(html);
   }
 
   const doc = new DOMParser().parseFromString(html, "text/html");

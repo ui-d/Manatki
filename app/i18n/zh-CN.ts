@@ -291,6 +291,14 @@ const messages = {
     exportPngError: "导出为 PNG 时出了点问题。",
   },
   share: {
+    snapshotTab: "快照链接",
+    snapshotDescription: "创建此演示文稿冻结副本的公开只读链接。之后的编辑不会包含在内。",
+    activeLinks: "有效链接",
+    revoke: "撤销链接",
+    noLinks: "暂无快照链接。",
+    expiresNote: "链接创建 30 天后过期。",
+    loadLinksFailed: "加载链接失败",
+    revokeFailed: "撤销链接失败",
     createFailed: "无法创建共享链接",
     title: "共享演示文稿",
     cloudUpgradeDescription:

@@ -10,8 +10,12 @@ import { assertAccess, ForbiddenError } from "@agent-native/core/sharing";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
+import { getRequestUserEmail } from "@agent-native/core/server/request-context";
+
 import { getDb, schema } from "../server/db/index.js";
 import { notifyClients } from "../server/handlers/decks.js";
+import { revokeShareLinksForDeck } from "../server/handlers/share.js";
+import { deletePreviewBlob } from "../server/lib/preview-blob-gc.js";
 import { deckHttpError } from "./_deck-write.js";
 
 export default defineAction({
@@ -47,7 +51,34 @@ export default defineAction({
       if (result.length === 0) {
         throw deckHttpError(404, "Deck not found");
       }
-      notifyClients(id, "deck-deleted");
+      // Public snapshot links must not outlive the deck. Failure here is
+      // non-fatal (links still expire via TTL) but logged for follow-up.
+      try {
+        await revokeShareLinksForDeck(id);
+      } catch (err) {
+        console.warn(
+          "[delete-deck] failed to revoke share links:",
+          err instanceof Error ? err.message : err,
+        );
+      }
+      // GC the preview thumbnail blob; fire-and-forget, an orphan is fine.
+      const previewUrl = (access.resource.previewUrl as string | null) ?? null;
+      if (previewUrl) {
+        void deletePreviewBlob(previewUrl, [
+          access.resource.ownerEmail as string,
+          getRequestUserEmail(),
+        ]);
+      }
+      // The row is already gone, so scoped delivery cannot look up the
+      // audience — pass it from the pre-delete access check.
+      notifyClients(id, {
+        type: "deck-deleted",
+        audience: {
+          ownerEmail: access.resource.ownerEmail as string,
+          orgId: (access.resource.orgId as string | null) ?? null,
+          visibility: (access.resource.visibility as string | null) ?? null,
+        },
+      });
       return { success: true };
     } catch (err) {
       // 404 rather than 403 so callers can't probe for decks they can't see.

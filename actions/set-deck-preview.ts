@@ -7,11 +7,13 @@
  * the rev compare-and-swap.
  */
 import { defineAction } from "@agent-native/core";
+import { getRequestUserEmail } from "@agent-native/core/server/request-context";
 import { assertAccess } from "@agent-native/core/sharing";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb, schema } from "../server/db/index.js";
+import { deletePreviewBlob } from "../server/lib/preview-blob-gc.js";
 
 function isHostedUrl(value: string): boolean {
   // Hosted URLs only — never data: payloads into SQL.
@@ -36,7 +38,7 @@ export default defineAction({
       .describe("Hosted preview image URL, or null to clear"),
   }),
   run: async ({ deckId, previewUrl }) => {
-    await assertAccess("deck", deckId, "editor");
+    const access = await assertAccess("deck", deckId, "editor");
     if (previewUrl !== null && !isHostedUrl(previewUrl)) {
       throw Object.assign(
         new Error("previewUrl must be a hosted URL, not inline data"),
@@ -44,11 +46,23 @@ export default defineAction({
       );
     }
 
+    const previousUrl = (access.resource.previewUrl as string | null) ?? null;
+
     const db = getDb();
     await db
       .update(schema.decks)
       .set({ previewUrl })
       .where(eq(schema.decks.id, deckId));
+
+    // GC the replaced blob — every regeneration uploads a new random-suffixed
+    // file, so without this stale previews accumulate forever. Fire-and-forget:
+    // an orphaned blob must never fail the preview write.
+    if (previousUrl && previousUrl !== previewUrl) {
+      void deletePreviewBlob(previousUrl, [
+        access.resource.ownerEmail as string,
+        getRequestUserEmail(),
+      ]);
+    }
 
     return { ok: true, deckId };
   },

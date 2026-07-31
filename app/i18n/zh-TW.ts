@@ -291,6 +291,14 @@ const messages = {
     exportPngError: "匯出為 PNG 時出了點問題。",
   },
   share: {
+    snapshotTab: "快照連結",
+    snapshotDescription: "建立此簡報凍結副本的公開唯讀連結。之後的編輯不會包含在內。",
+    activeLinks: "有效連結",
+    revoke: "撤銷連結",
+    noLinks: "尚無快照連結。",
+    expiresNote: "連結建立 30 天後到期。",
+    loadLinksFailed: "載入連結失敗",
+    revokeFailed: "撤銷連結失敗",
     createFailed: "無法建立共用連結",
     title: "共用簡報",
     cloudUpgradeDescription:

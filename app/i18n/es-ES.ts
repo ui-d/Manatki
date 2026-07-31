@@ -310,6 +310,14 @@ const messages = {
     exportPngError: "Algo salió mal al exportar como PNG.",
   },
   share: {
+    snapshotTab: "Enlace de instantánea",
+    snapshotDescription: "Crea un enlace público de solo lectura a una copia congelada de esta presentación. Las ediciones posteriores no se incluyen.",
+    activeLinks: "Enlaces activos",
+    revoke: "Revocar enlace",
+    noLinks: "Aún no hay enlaces de instantánea.",
+    expiresNote: "Los enlaces caducan 30 días después de su creación.",
+    loadLinksFailed: "No se pudieron cargar los enlaces",
+    revokeFailed: "No se pudo revocar el enlace",
     createFailed: "No se pudo crear el enlace para compartir",
     title: "Compartir presentación",
     cloudUpgradeDescription:

@@ -247,6 +247,17 @@ const runSlidesMigrations = runMigrations(
       name: "slides-decks-preview-url-column",
       sql: `ALTER TABLE decks ADD COLUMN IF NOT EXISTS preview_url TEXT`,
     },
+    // v23: revocable share links. Snapshot rows previously had no owner or
+    // deck linkage, so links could never be listed or revoked and deck
+    // deletion left them alive for the full 30-day TTL.
+    {
+      version: 23,
+      name: "slides-share-links-revocable",
+      sql: `ALTER TABLE deck_share_links ADD COLUMN IF NOT EXISTS owner_email TEXT NOT NULL DEFAULT 'local@localhost';
+  ALTER TABLE deck_share_links ADD COLUMN IF NOT EXISTS deck_id TEXT;
+  ALTER TABLE deck_share_links ADD COLUMN IF NOT EXISTS revoked_at TEXT;
+  CREATE INDEX IF NOT EXISTS deck_share_links_deck_created_idx ON deck_share_links (deck_id, created_at)`,
+    },
   ],
   { table: "slides_migrations" },
 );

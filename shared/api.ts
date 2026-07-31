@@ -72,6 +72,15 @@ export interface ShareDeckResponse {
   shareToken: string;
 }
 
+export interface ShareLinkSummary {
+  token: string;
+  createdAt: string;
+}
+
+export interface ShareLinkListResponse {
+  links: ShareLinkSummary[];
+}
+
 export interface SharedDeckResponse {
   title: string;
   slides: SharedDeckSlide[];

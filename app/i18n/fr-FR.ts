@@ -313,6 +313,14 @@ const messages = {
     exportPngError: "Une erreur est survenue lors de l’export en PNG.",
   },
   share: {
+    snapshotTab: "Lien d'instantané",
+    snapshotDescription: "Créez un lien public en lecture seule vers une copie figée de cette présentation. Les modifications ultérieures ne sont pas incluses.",
+    activeLinks: "Liens actifs",
+    revoke: "Révoquer le lien",
+    noLinks: "Aucun lien d'instantané pour le moment.",
+    expiresNote: "Les liens expirent 30 jours après leur création.",
+    loadLinksFailed: "Échec du chargement des liens",
+    revokeFailed: "Échec de la révocation du lien",
     createFailed: "Impossible de créer le lien de partage",
     title: "Partager la présentation",
     cloudUpgradeDescription:

@@ -304,6 +304,14 @@ const messages = {
     exportPngError: "Something went wrong exporting as PNG.",
   },
   share: {
+    snapshotTab: "Snapshot link",
+    snapshotDescription: "Create a public read-only link to a frozen copy of this deck. Later edits are not included.",
+    activeLinks: "Active links",
+    revoke: "Revoke link",
+    noLinks: "No snapshot links yet.",
+    expiresNote: "Links expire 30 days after creation.",
+    loadLinksFailed: "Failed to load share links",
+    revokeFailed: "Failed to revoke link",
     createFailed: "Failed to create share link",
     title: "Share Presentation",
     cloudUpgradeDescription:

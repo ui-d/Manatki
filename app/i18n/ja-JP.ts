@@ -305,6 +305,14 @@ const messages = {
     exportPngError: "PNG としてエクスポート中に問題が発生しました。",
   },
   share: {
+    snapshotTab: "スナップショットリンク",
+    snapshotDescription: "このデッキの固定コピーへの公開閲覧専用リンクを作成します。以降の編集は反映されません。",
+    activeLinks: "有効なリンク",
+    revoke: "リンクを無効化",
+    noLinks: "スナップショットリンクはまだありません。",
+    expiresNote: "リンクは作成から30日で期限切れになります。",
+    loadLinksFailed: "リンクの読み込みに失敗しました",
+    revokeFailed: "リンクの無効化に失敗しました",
     createFailed: "共有リンクを作成できませんでした",
     title: "プレゼンテーションを共有",
     cloudUpgradeDescription:

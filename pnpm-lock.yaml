@@ -124,6 +124,9 @@ importers:
       h3:
         specifier: ^2.0.1-rc.20
         version: 2.0.1-rc.26(crossws@0.4.10(srvx@0.11.22))
+      happy-dom:
+        specifier: ^20.8.9
+        version: 20.11.1
       isbot:
         specifier: ^5
         version: 5.2.1
@@ -323,9 +326,6 @@ importers:
       globals:
         specifier: ^16.3.0
         version: 16.5.0
-      happy-dom:
-        specifier: ^20.8.9
-        version: 20.11.1
       input-otp:
         specifier: ^1.4.2
         version: 1.4.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
