@@ -236,8 +236,54 @@ For "make a campaign for X":
 
 ## Adapting an existing asset to another format
 
-"Turn this post into a story": call `get-deck` to read the source HTML,
-then `add-slide` with the target `--sizePreset` and **rewritten** HTML —
-keep copy, colors, and image URLs; re-derive the layout from the target
-archetype's template (see Campaigns rule 3). Iterate on the fit check like
-any slide.
+"Turn this post into a story" / the editor's per-asset **Adapt to
+format…** menu. Adaptation means **re-composing** the same message for a
+new canvas — never scaling, cropping, or letterboxing the old layout.
+
+**Two modes — pick by intent:**
+
+- **Adapt as a new asset (default, what the UI menu requests):**
+  `get-deck` to read the source slide's HTML, then `add-slide` with the
+  target `--sizePreset` (or `--width`/`--height`), positioned right after
+  the source asset. The original stays untouched.
+- **Resize in place** (user says "make *this one* a story"):
+  `update-slide --sizePreset <target>` with rewritten `--fullContent` in
+  the same call.
+
+**What carries over verbatim vs what gets re-derived:**
+
+| Keep unchanged | Re-derive for the target |
+| --- | --- |
+| Headline, supporting line, CTA text | Layout structure (target archetype's template) |
+| Brand colors, fonts, design-system tokens | Type scale (target preset's headline baseline) |
+| Image URLs / `fmd-img-placeholder` descriptions | Image placement, size, and crop ratio |
+| Freeform objects + `data-slide-object-id` | Padding, alignment, element order |
+
+**Archetype-crossing rules** (source archetype → target archetype):
+
+- **stack → story** (1:1 → 9:16): switch to the story template; center the
+  content vertically inside the safe band (top 220px / bottom 280px are
+  background-only); promote the CTA to a pill; headline up to the story
+  baseline (128px).
+- **split → stack** (16:9 → 1:1): stack the text column above the image
+  instead of beside it; if the canvas gets tight, drop the image before you
+  shrink the headline below the target baseline.
+- **stack/story → split or strip** (1:1 → 1200×628 banner): height is now
+  the constraint — move to a side-by-side (split) or one-row (strip)
+  composition, cut the supporting line if needed, never shrink the stacked
+  layout to fit.
+- **anything → micro**: keep only headline + CTA at the micro type scale;
+  the 2× rule does not apply.
+- Same-archetype adaptation (e.g. `ig-square` → `pinterest-pin`): keep the
+  template, re-scale type to the target baseline and let flexible regions
+  (`flex: 1` image) absorb the extra height.
+
+**Fit-check discipline:** react to `layoutOverflow` like any slide, but
+overflow after an archetype crossing means the composition is wrong —
+re-compose from the target archetype's template rather than nudging font
+sizes. A correct adaptation fits within ~2 iterations.
+
+**Copy parity check** before finishing: the adapted asset must contain the
+same headline, supporting line (unless a strip/micro target drops it by
+rule), and CTA as the source — reworded copy is a bug unless the user
+asked for it.

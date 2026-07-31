@@ -77,9 +77,12 @@ import {
   presetsInCategory,
   type DeckKind,
   type SizePreset,
-  type SizePresetCategory,
   type SlideSize,
 } from "@/lib/slide-size";
+import {
+  SIZE_CATEGORY_LABEL_KEYS,
+  presetLabel,
+} from "@/lib/size-preset-labels";
 import { parseUploadResponse } from "@/lib/upload-response";
 import { shortcutLabel } from "@/lib/utils";
 
@@ -1164,27 +1167,6 @@ graph TD
       <AgentToggleButton />
     </div>
   );
-}
-
-const SIZE_CATEGORY_LABEL_KEYS: Record<SizePresetCategory, string> = {
-  posts: "editorToolbar.sizeCategoryPosts",
-  vertical: "editorToolbar.sizeCategoryVertical",
-  banners: "editorToolbar.sizeCategoryBanners",
-  web: "editorToolbar.sizeCategoryWeb",
-  ads: "editorToolbar.sizeCategoryAds",
-};
-
-/** Localized preset label; falls back to the table's English label when a
- *  newly-added preset has no `editorToolbar.sizePreset.<id>` key yet. */
-function presetLabel(
-  t: ReturnType<typeof useT>,
-  key: SizePreset,
-): string {
-  const i18nKey = `editorToolbar.sizePreset.${key}`;
-  const translated = t(i18nKey);
-  return translated && translated !== i18nKey
-    ? translated
-    : SIZE_PRESETS[key].label;
 }
 
 /** Per-slide canvas-size picker shown in social projects: named presets

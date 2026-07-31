@@ -524,6 +524,7 @@ const messages = {
     duplicateCurrentSlide: "현재 슬라이드 복제",
     promptPlaceholder: "원하는 슬라이드를 설명하세요...",
     slides: "슬라이드",
+    adaptToFormat: "다른 형식으로 변환",
   },
   presentation: {
     presenterView: "발표자 보기",

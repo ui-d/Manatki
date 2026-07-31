@@ -507,6 +507,7 @@ const messages = {
     duplicateCurrentSlide: "复制当前幻灯片",
     promptPlaceholder: "描述你想要的幻灯片...",
     slides: "幻灯片",
+    adaptToFormat: "适配为其他格式",
   },
   presentation: {
     presenterView: "演讲者视图",

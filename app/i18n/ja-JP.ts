@@ -522,6 +522,7 @@ const messages = {
     duplicateCurrentSlide: "現在のスライドを複製",
     promptPlaceholder: "作成したいスライドを説明してください...",
     slides: "スライド",
+    adaptToFormat: "別フォーマットに適応",
   },
   presentation: {
     presenterView: "発表者ビュー",

@@ -533,6 +533,7 @@ const messages = {
     duplicateCurrentSlide: "Duplicar slide atual",
     promptPlaceholder: "Descreva os slides que você quer...",
     slides: "Slides",
+    adaptToFormat: "Adaptar ao formato",
   },
   presentation: {
     presenterView: "Modo apresentador",

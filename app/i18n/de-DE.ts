@@ -536,6 +536,7 @@ const messages = {
     duplicateCurrentSlide: "Aktuelle Folie duplizieren",
     promptPlaceholder: "Beschreibe die Folien, die du möchtest...",
     slides: "Folien",
+    adaptToFormat: "An Format anpassen",
   },
   presentation: {
     presenterView: "Referentenansicht",

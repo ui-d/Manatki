@@ -521,6 +521,7 @@ const messages = {
     duplicateCurrentSlide: "वर्तमान स्लाइड डुप्लिकेट करें",
     promptPlaceholder: "बताएं कि आपको कैसी स्लाइड चाहिए...",
     slides: "स्लाइड",
+    adaptToFormat: "फ़ॉर्मैट में ढालें",
   },
   presentation: {
     presenterView: "प्रस्तुतकर्ता दृश्य",

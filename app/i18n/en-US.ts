@@ -526,6 +526,7 @@ const messages = {
     duplicateCurrentSlide: "Duplicate current slide",
     promptPlaceholder: "Describe the slides you want...",
     slides: "Slides",
+    adaptToFormat: "Adapt to format",
   },
   presentation: {
     presenterView: "Presenter view",

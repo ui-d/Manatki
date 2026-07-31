@@ -1119,6 +1119,7 @@ export default function DeckEditor() {
                   slidePresence={slidePresence}
                   recentEdits={deckRecentEdits}
                   aspectRatio={deck.aspectRatio}
+                  deckKind={deck.kind}
                 />
               </DndContext>
             </div>

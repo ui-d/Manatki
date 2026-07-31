@@ -20,6 +20,7 @@ import {
   IconTrash,
   IconLoader2,
   IconSquarePlus,
+  IconTransform,
 } from "@tabler/icons-react";
 import { useState, useRef, useEffect } from "react";
 import { useCallback } from "react";
@@ -33,13 +34,31 @@ import {
   type UploadedFile,
 } from "@/components/editor/PromptDialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { Slide } from "@/context/DeckContext";
 import { useAgentGenerating } from "@/hooks/use-agent-generating";
-import { getSlideDims } from "@/lib/slide-size";
+import {
+  SIZE_PRESETS,
+  SIZE_PRESET_CATEGORIES,
+  getSlideDims,
+  presetsInCategory,
+  type DeckKind,
+  type SizePreset,
+} from "@/lib/slide-size";
+import {
+  SIZE_CATEGORY_LABEL_KEYS,
+  presetLabel,
+} from "@/lib/size-preset-labels";
 import { addSlideAgentMessage } from "@/lib/agent-visible-message";
 import type { AspectRatio } from "@/lib/aspect-ratios";
 
@@ -60,6 +79,8 @@ interface EditorSidebarProps {
   aspectRatio?: AspectRatio;
   /** True while a newly-created deck is being populated slide by slide. */
   deckGenerating?: boolean;
+  /** Project kind — "social" adds a per-asset "Adapt to format" menu. */
+  deckKind?: DeckKind;
 }
 
 /** Extract the slide id from a `{kind:"paths",paths:["slides.<id>"]}` edit. */
@@ -181,6 +202,7 @@ function SortableSlideThumb({
   onSelect,
   onDuplicate,
   onDelete,
+  onAdapt,
   registerButtonRef,
   presenceUsers = [],
   aspectRatio,
@@ -191,6 +213,8 @@ function SortableSlideThumb({
   onSelect: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  /** Present only in social projects: adapt this asset to a target preset. */
+  onAdapt?: (targetPreset: SizePreset) => void;
   registerButtonRef: (slideId: string, node: HTMLButtonElement | null) => void;
   presenceUsers?: CollabUser[];
   aspectRatio?: AspectRatio;
@@ -312,7 +336,62 @@ function SortableSlideThumb({
       </button>
 
       {/* Actions - always visible on touch devices */}
-      <div className="absolute top-2 right-2 flex gap-0.5 sm:opacity-0 sm:group-hover:opacity-100">
+      <div className="absolute top-2 right-2 flex gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:has-[[data-state=open]]:opacity-100">
+        {onAdapt && (
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-1.5 rounded bg-black/60 backdrop-blur-sm border border-white/10 hover:bg-black/80"
+                    aria-label={t("editorSidebar.adaptToFormat")}
+                  >
+                    <IconTransform className="w-3 h-3 text-white/60" />
+                  </button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>{t("editorSidebar.adaptToFormat")}</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent
+              align="end"
+              className="max-h-72 w-56 overflow-y-auto"
+            >
+              <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {t("editorSidebar.adaptToFormat")}
+              </DropdownMenuLabel>
+              {SIZE_PRESET_CATEGORIES.map((category) => (
+                <div key={category}>
+                  <div className="px-2 pt-1 pb-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                    {t(SIZE_CATEGORY_LABEL_KEYS[category])}
+                  </div>
+                  {presetsInCategory(category).map((key) => {
+                    const preset = SIZE_PRESETS[key];
+                    const isCurrent =
+                      preset.width === dims.width &&
+                      preset.height === dims.height;
+                    return (
+                      <DropdownMenuItem
+                        key={key}
+                        disabled={isCurrent}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAdapt(key);
+                        }}
+                        className="text-xs"
+                      >
+                        <span className="truncate">{presetLabel(t, key)}</span>
+                        <span className="ml-auto pl-2 text-[10px] text-muted-foreground">
+                          {preset.width}×{preset.height}
+                        </span>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </div>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -596,6 +675,7 @@ export default function EditorSidebar({
   recentEdits,
   aspectRatio,
   deckGenerating = false,
+  deckKind,
 }: EditorSidebarProps) {
   const t = useT();
   const activeIndex = slides.findIndex((s) => s.id === activeSlideId);
@@ -620,6 +700,33 @@ export default function EditorSidebar({
   );
   const { generating, submit: agentSubmit } = useAgentGenerating();
   const showGeneratingSlide = deckGenerating || addSlideGenerating;
+
+  /** Social projects: hand the adaptation to the agent — it re-composes the
+   *  asset for the target canvas as a NEW slide (delegate-to-agent pattern;
+   *  the composition itself is creative work, not a mechanical resize). */
+  const handleAdaptSlide = useCallback(
+    (slide: Slide, index: number, targetPreset: SizePreset) => {
+      const preset = SIZE_PRESETS[targetPreset];
+      const sourceDims = getSlideDims(slide, aspectRatio);
+      const message = `Adapt asset ${index + 1} to ${preset.label} (${preset.width}×${preset.height})`;
+      const context = [
+        `Adapt one social asset to a new format in project "${deckTitle}" (id: ${deckId}).`,
+        `Source asset: slide id ${slide.id} (asset ${index + 1} of ${slides.length}), current canvas ${sourceDims.width}×${sourceDims.height}.`,
+        `Target format: ${targetPreset} — ${preset.width}×${preset.height}.`,
+        "",
+        'Follow the create-social-assets skill, section "Adapting an existing asset to another format" (adapt-as-new-asset mode):',
+        `1. Call \`get-deck --deckId=${deckId}\` and read the source slide's HTML.`,
+        `2. Call \`add-slide --deckId=${deckId} --layout blank --sizePreset ${targetPreset} --position ${index + 1}\` so the new asset lands right after the source.`,
+        "3. Keep the headline, supporting line, CTA, brand colors, and image URLs from the source; re-compose the layout from the target archetype's template. Never letterbox, crop, or scale the old layout.",
+        "4. React to layoutOverflow in the result by re-composing until the asset fits.",
+        "",
+        "The original asset must remain unchanged.",
+      ].join("\n");
+      setAddSlideGenerating(true);
+      agentSubmit(message, context);
+    },
+    [agentSubmit, aspectRatio, deckId, deckTitle, slides.length],
+  );
 
   const registerSlideButton = useCallback(
     (slideId: string, node: HTMLButtonElement | null) => {
@@ -717,6 +824,12 @@ export default function EditorSidebar({
               onSelect={() => onSelectSlide(slide.id)}
               onDuplicate={() => onDuplicateSlide(slide.id)}
               onDelete={() => onDeleteSlide(slide.id)}
+              onAdapt={
+                deckKind === "social"
+                  ? (targetPreset) =>
+                      handleAdaptSlide(slide, index, targetPreset)
+                  : undefined
+              }
               registerButtonRef={registerSlideButton}
               presenceUsers={slidePresence?.get(slide.id) ?? []}
               aspectRatio={aspectRatio}

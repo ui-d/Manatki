@@ -537,6 +537,7 @@ const messages = {
     duplicateCurrentSlide: "تكرار الشريحة الحالية",
     promptPlaceholder: "صف الشرائح التي تريدها...",
     slides: "الشرائح",
+    adaptToFormat: "تحويل إلى صيغة أخرى",
   },
   presentation: {
     presenterView: "عرض مقدّم العرض",
