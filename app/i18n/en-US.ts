@@ -575,6 +575,9 @@ const messages = {
     mixedSizesExport:
       "This project has mixed asset sizes — PPTX and Google Slides need one uniform size. Export PNGs instead.",
     pdfRenderFailed: "Could not render PDF.",
+    exportImageWarning: "Some images may be blank",
+    exportImageWarningDetail:
+      "{{total}} linked image(s) blocked cross-origin loading (CORS) and rendered blank in the export. Re-upload them to the asset library or host them with CORS enabled.",
     buildingDeck: "Building deck",
     slidesAdded_one: "{{count}} slide added",
     slidesAdded_other: "{{count}} slides added",

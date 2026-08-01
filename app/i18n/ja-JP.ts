@@ -571,6 +571,9 @@ const messages = {
     mixedSizesExport:
       "このプロジェクトにはサイズの異なるアセットが混在しています — PPTX と Google Slides には統一サイズが必要です。代わりに PNG をエクスポートしてください。",
     pdfRenderFailed: "PDF をレンダリングできませんでした。",
+    exportImageWarning: "一部の画像が空白になる可能性があります",
+    exportImageWarningDetail:
+      "{{total}} 件のリンク画像がクロスオリジン読み込み（CORS）をブロックされ、エクスポートで空白になりました。アセットライブラリに再アップロードするか、CORS を有効にしてホストしてください。",
     buildingDeck: "デッキを構築中",
     slidesAdded_one: "{{count}} 枚のスライドを追加しました",
     slidesAdded_other: "{{count}} 枚のスライドを追加しました",

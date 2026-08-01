@@ -582,6 +582,9 @@ const messages = {
     mixedSizesExport:
       "Este projeto tem ativos de tamanhos diferentes — PPTX e Google Slides exigem um tamanho uniforme. Exporte PNGs em vez disso.",
     pdfRenderFailed: "Não foi possível renderizar o PDF.",
+    exportImageWarning: "Algumas imagens podem sair em branco",
+    exportImageWarningDetail:
+      "{{total}} imagem(ns) vinculada(s) bloquearam o carregamento entre origens (CORS) e ficaram em branco na exportação. Reenvie-as para a biblioteca de ativos ou hospede-as com CORS habilitado.",
     buildingDeck: "Construindo o deck",
     slidesAdded_one: "{{count}} slide adicionado",
     slidesAdded_other: "{{count}} slides adicionados",

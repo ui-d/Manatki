@@ -300,6 +300,19 @@ export default function DeckEditor() {
     [],
   );
 
+  // CORS-tainted cross-origin images render blank in DOM captures. The
+  // exporters report them; surface a warning instead of failing silently.
+  const warnTaintedImages = useCallback(
+    (report: { taintedImages: string[] } | void) => {
+      const total = report?.taintedImages.length ?? 0;
+      if (total === 0) return;
+      toast.warning(t("deckEditor.exportImageWarning"), {
+        description: t("deckEditor.exportImageWarningDetail", { total }),
+      });
+    },
+    [t],
+  );
+
   const hasTeamJoinOption =
     !org?.orgId &&
     ((org?.pendingInvitations?.length ?? 0) > 0 ||
@@ -983,8 +996,10 @@ export default function DeckEditor() {
               });
               return;
             }
-            await withExportStage(() =>
-              exportDeckAsPdf(deck.title, slideIds, deck.aspectRatio),
+            warnTaintedImages(
+              await withExportStage(() =>
+                exportDeckAsPdf(deck.title, slideIds, deck.aspectRatio),
+              ),
             );
           } catch (err) {
             console.error("[pdf-export] failed:", err);
@@ -1007,8 +1022,10 @@ export default function DeckEditor() {
           if (!isUniformSize(deck.slides, deck.aspectRatio)) {
             throw new Error(t("deckEditor.mixedSizesExport"));
           }
-          await withExportStage(() =>
-            exportDeckAsPptx(deck.title, slides, deck.aspectRatio),
+          warnTaintedImages(
+            await withExportStage(() =>
+              exportDeckAsPptx(deck.title, slides, deck.aspectRatio),
+            ),
           );
         }}
         onExportGoogleSlides={async () => {
@@ -1035,12 +1052,14 @@ export default function DeckEditor() {
           if (!currentSlide) return;
           const index = deck.slides.findIndex((s) => s.id === currentSlide.id);
           const dims = getSlideDims(currentSlide, deck.aspectRatio);
-          await withExportStage(() =>
-            exportSlideAsPng(
-              deck.title,
-              { id: currentSlide.id, ...dims },
-              Math.max(index, 0),
-              deck.slides.length,
+          warnTaintedImages(
+            await withExportStage(() =>
+              exportSlideAsPng(
+                deck.title,
+                { id: currentSlide.id, ...dims },
+                Math.max(index, 0),
+                deck.slides.length,
+              ),
             ),
           );
         }}
@@ -1051,13 +1070,15 @@ export default function DeckEditor() {
             });
             return;
           }
-          await withExportStage(() =>
-            exportSlidesAsZip(
-              deck.title,
-              deck.slides.map((s) => ({
-                id: s.id,
-                ...getSlideDims(s, deck.aspectRatio),
-              })),
+          warnTaintedImages(
+            await withExportStage(() =>
+              exportSlidesAsZip(
+                deck.title,
+                deck.slides.map((s) => ({
+                  id: s.id,
+                  ...getSlideDims(s, deck.aspectRatio),
+                })),
+              ),
             ),
           );
         }}

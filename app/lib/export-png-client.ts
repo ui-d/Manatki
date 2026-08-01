@@ -6,6 +6,7 @@
  */
 import { importExportModule } from "./dynamic-import";
 import {
+  type ExportImageReport,
   findSlideExportSource,
   preloadImagesWithCors,
 } from "./export-pdf-client";
@@ -42,6 +43,7 @@ export async function rasterizeSlideToPng(
   slideIndex: number,
   slideCount: number,
   scale = 2,
+  onTaintedImages?: (srcs: string[]) => void,
 ): Promise<string> {
   const { domToPng } = await importExportModule(
     () => import("modern-screenshot"),
@@ -54,7 +56,8 @@ export async function rasterizeSlideToPng(
   }
 
   const source = findSlideExportSource(slide.id, slideIndex, slideCount);
-  await preloadImagesWithCors(source);
+  const tainted = await preloadImagesWithCors(source);
+  if (tainted.length > 0) onTaintedImages?.(tainted);
 
   return domToPng(source, {
     width: slide.width,
@@ -72,27 +75,38 @@ export async function exportSlideAsPng(
   slide: PngExportSlide,
   slideIndex: number,
   slideCount: number,
-): Promise<void> {
-  const dataUrl = await rasterizeSlideToPng(slide, slideIndex, slideCount);
+): Promise<ExportImageReport> {
+  const taintedImages: string[] = [];
+  const dataUrl = await rasterizeSlideToPng(
+    slide,
+    slideIndex,
+    slideCount,
+    2,
+    (srcs) => taintedImages.push(...srcs),
+  );
   triggerDownload(
     dataUrl,
     `${safeFileName(deckTitle)}-${slideIndex + 1}-${slide.width}x${slide.height}.png`,
   );
+  return { taintedImages: [...new Set(taintedImages)] };
 }
 
 /** Download every slide as a PNG inside one ZIP archive. */
 export async function exportSlidesAsZip(
   deckTitle: string,
   slides: PngExportSlide[],
-): Promise<void> {
+): Promise<ExportImageReport> {
   const { default: JSZip } = await importExportModule(
     () => import("jszip"),
   );
   const zip = new JSZip();
 
+  const taintedImages: string[] = [];
   for (let i = 0; i < slides.length; i++) {
     const slide = slides[i];
-    const dataUrl = await rasterizeSlideToPng(slide, i, slides.length);
+    const dataUrl = await rasterizeSlideToPng(slide, i, slides.length, 2, (srcs) =>
+      taintedImages.push(...srcs),
+    );
     const base64 = dataUrl.split(",")[1];
     if (!base64) {
       throw new Error(`Slide ${i + 1} produced an empty render.`);
@@ -108,4 +122,5 @@ export async function exportSlidesAsZip(
   const url = URL.createObjectURL(blob);
   triggerDownload(url, `${safeFileName(deckTitle)}.zip`);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return { taintedImages: [...new Set(taintedImages)] };
 }

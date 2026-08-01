@@ -1,6 +1,7 @@
 import { type AspectRatio, getAspectRatioDims } from "./aspect-ratios";
 import { importExportModule } from "./dynamic-import";
 import {
+  type ExportImageReport,
   findSlideExportSource,
   preloadImagesWithCors,
 } from "./export-pdf-client";
@@ -317,7 +318,7 @@ export async function buildDeckPptxBlob(
   deckTitle: string,
   slides: PptxExportSlide[],
   aspectRatio?: AspectRatio,
-): Promise<{ blob: Blob; filename: string }> {
+): Promise<{ blob: Blob; filename: string; taintedImages: string[] }> {
   const { exportToPptx } = await importExportModule(
     () => import("dom-to-pptx"),
   );
@@ -332,6 +333,7 @@ export async function buildDeckPptxBlob(
     cleanup: () => void;
   }> = [];
 
+  const taintedImages: string[] = [];
   try {
     for (let i = 0; i < slides.length; i++) {
       const exportSlide = slides[i];
@@ -343,7 +345,7 @@ export async function buildDeckPptxBlob(
       exportClones.push(clone);
       widenNoWrapTextElements(clone.element);
       await replaceInlineSvgsWithImages(clone.element);
-      await preloadImagesWithCors(clone.element);
+      taintedImages.push(...(await preloadImagesWithCors(clone.element)));
     }
 
     const initialBlob = await exportToPptx(
@@ -359,7 +361,11 @@ export async function buildDeckPptxBlob(
     );
 
     const blob = await addSpeakerNotesToPptxBlob(initialBlob, slides);
-    return { blob, filename: safePptxName(deckTitle) };
+    return {
+      blob,
+      filename: safePptxName(deckTitle),
+      taintedImages: [...new Set(taintedImages)],
+    };
   } finally {
     for (const clone of exportClones) {
       clone.cleanup();
@@ -371,11 +377,12 @@ export async function exportDeckAsPptx(
   deckTitle: string,
   slides: PptxExportSlide[],
   aspectRatio?: AspectRatio,
-): Promise<void> {
-  const { blob, filename } = await buildDeckPptxBlob(
+): Promise<ExportImageReport> {
+  const { blob, filename, taintedImages } = await buildDeckPptxBlob(
     deckTitle,
     slides,
     aspectRatio,
   );
   triggerBlobDownload(blob, filename);
+  return { taintedImages };
 }

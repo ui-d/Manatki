@@ -51,3 +51,7 @@ data/uploads-public/
 .vercel
 .env*
 .playwright-mcp/
+
+# Playwright E2E artifacts
+test-results/
+playwright-report/

@@ -20,9 +20,16 @@ import { importExportModule } from "./dynamic-import";
  * apply CORS to an already-decoded image — we have to force a re-fetch by
  * setting the attribute and re-assigning the same src. This is the root
  * cause of the "blank images in exported PDF" bug Rochkind reported.
+ *
+ * Returns the srcs that could not be re-fetched with CORS — those images
+ * will render blank in the capture, so callers surface a warning instead of
+ * exporting silently.
  */
-export async function preloadImagesWithCors(root: HTMLElement): Promise<void> {
+export async function preloadImagesWithCors(
+  root: HTMLElement,
+): Promise<string[]> {
   const imgs = Array.from(root.querySelectorAll<HTMLImageElement>("img"));
+  const tainted: string[] = [];
   await Promise.all(
     imgs.map(async (img) => {
       const src = img.currentSrc || img.src;
@@ -40,7 +47,7 @@ export async function preloadImagesWithCors(root: HTMLElement): Promise<void> {
         try {
           await img.decode();
         } catch {
-          /* ignore */
+          tainted.push(src);
         }
         return;
       }
@@ -56,9 +63,11 @@ export async function preloadImagesWithCors(root: HTMLElement): Promise<void> {
           `[export-pdf] CORS-tainted image likely caused blank render: ${src}`,
           err,
         );
+        tainted.push(src);
       }
     }),
   );
+  return tainted;
 }
 
 export function findSlideExportSource(
@@ -88,11 +97,16 @@ export function findSlideExportSource(
   );
 }
 
+export interface ExportImageReport {
+  /** Cross-origin image srcs that will render blank in the export. */
+  taintedImages: string[];
+}
+
 export async function exportDeckAsPdf(
   deckTitle: string,
   slideIds: string[],
   aspectRatio?: AspectRatio,
-): Promise<void> {
+): Promise<ExportImageReport> {
   // modern-screenshot uses <foreignObject> SVG rendering, which delegates
   // text layout back to the browser. html2canvas / html2canvas-pro
   // re-implement text layout in JS and get per-character positioning wrong
@@ -125,6 +139,7 @@ export async function exportDeckAsPdf(
     format: [dims.width, dims.height],
   });
 
+  const taintedImages: string[] = [];
   for (let i = 0; i < slideIds.length; i++) {
     const slideId = slideIds[i];
     const source = findSlideExportSource(slideId, i, slideIds.length);
@@ -132,7 +147,7 @@ export async function exportDeckAsPdf(
     // Force CORS-enabled re-fetch on every cross-origin <img> before
     // capture — otherwise the canvas tainting check inside modern-screenshot
     // produces a blank rect for the image.
-    await preloadImagesWithCors(source);
+    taintedImages.push(...(await preloadImagesWithCors(source)));
 
     const dataUrl = await domToJpeg(source, {
       width: dims.width,
@@ -168,4 +183,6 @@ export async function exportDeckAsPdf(
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  return { taintedImages: [...new Set(taintedImages)] };
 }

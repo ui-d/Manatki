@@ -236,7 +236,10 @@ export function ExportMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent text-xs cursor-pointer whitespace-nowrap">
+        <button
+          aria-label={t("editorExport.export")}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent text-xs cursor-pointer whitespace-nowrap"
+        >
           <IconUpload className="w-3.5 h-3.5" />
           <span className="hidden md:inline">{t("editorExport.export")}</span>
         </button>

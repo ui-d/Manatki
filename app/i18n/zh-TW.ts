@@ -554,6 +554,9 @@ const messages = {
     mixedSizesExport:
       "此專案包含多種素材尺寸 — PPTX 和 Google Slides 需要統一的尺寸。請改為匯出 PNG。",
     pdfRenderFailed: "無法渲染 PDF。",
+    exportImageWarning: "部分圖片可能為空白",
+    exportImageWarningDetail:
+      "{{total}} 張連結圖片因跨來源載入（CORS）被封鎖，在匯出中顯示為空白。請將其重新上傳到素材庫，或在啟用 CORS 的伺服器上託管。",
     buildingDeck: "正在建置幻燈片",
     slidesAdded_one: "已新增 {{count}} 張幻燈片",
     slidesAdded_other: "已新增 {{count}} 張幻燈片",

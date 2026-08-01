@@ -573,6 +573,9 @@ const messages = {
     mixedSizesExport:
       "이 프로젝트에는 서로 다른 크기의 에셋이 섞여 있습니다 — PPTX와 Google Slides는 하나의 통일된 크기가 필요합니다. 대신 PNG로 내보내세요.",
     pdfRenderFailed: "PDF를 렌더링할 수 없습니다.",
+    exportImageWarning: "일부 이미지가 비어 있을 수 있습니다",
+    exportImageWarningDetail:
+      "링크된 이미지 {{total}}개가 교차 출처 로드(CORS)를 차단당해 내보내기에서 비어 있게 렌더링되었습니다. 자산 라이브러리에 다시 업로드하거나 CORS를 활성화하여 호스팅하세요.",
     buildingDeck: "덱을 만드는 중",
     slidesAdded_one: "슬라이드 {{count}}장이 추가되었습니다",
     slidesAdded_other: "슬라이드 {{count}}장이 추가되었습니다",

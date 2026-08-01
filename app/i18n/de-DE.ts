@@ -585,6 +585,9 @@ const messages = {
     mixedSizesExport:
       "Dieses Projekt enthält Assets in unterschiedlichen Größen — PPTX und Google Slides benötigen eine einheitliche Größe. Exportiere stattdessen PNGs.",
     pdfRenderFailed: "PDF konnte nicht gerendert werden.",
+    exportImageWarning: "Einige Bilder sind möglicherweise leer",
+    exportImageWarningDetail:
+      "{{total}} verknüpfte(s) Bild(er) haben das Cross-Origin-Laden (CORS) blockiert und wurden im Export leer dargestellt. Lade sie erneut in die Asset-Bibliothek hoch oder hoste sie mit aktiviertem CORS.",
     buildingDeck: "Deck wird erstellt",
     slidesAdded_one: "{{count}} Folie hinzugefügt",
     slidesAdded_other: "{{count}} Folien hinzugefügt",

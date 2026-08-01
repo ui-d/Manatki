@@ -569,6 +569,9 @@ const messages = {
     mixedSizesExport:
       "इस प्रोजेक्ट में अलग-अलग आकार के एसेट हैं — PPTX और Google Slides को एक समान आकार चाहिए। इसके बजाय PNG निर्यात करें।",
     pdfRenderFailed: "PDF रेंडर नहीं हो सका।",
+    exportImageWarning: "कुछ छवियाँ खाली दिख सकती हैं",
+    exportImageWarningDetail:
+      "{{total}} लिंक की गई छवियों की क्रॉस-ऑरिजिन लोडिंग (CORS) अवरुद्ध हो गई और वे निर्यात में खाली दिखीं। उन्हें एसेट लाइब्रेरी में फिर से अपलोड करें या CORS सक्षम होस्टिंग पर रखें।",
     buildingDeck: "डेक बनाया जा रहा है",
     slidesAdded_one: "{{count}} स्लाइड जोड़ी गई",
     slidesAdded_other: "{{count}} स्लाइड जोड़ी गईं",

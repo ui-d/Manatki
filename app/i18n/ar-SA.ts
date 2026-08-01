@@ -586,6 +586,9 @@ const messages = {
     mixedSizesExport:
       "يحتوي هذا المشروع على أصول بأحجام مختلطة — يتطلب PPTX وGoogle Slides حجمًا واحدًا موحدًا. صدّر ملفات PNG بدلًا من ذلك.",
     pdfRenderFailed: "تعذر إنشاء ملف PDF.",
+    exportImageWarning: "قد تظهر بعض الصور فارغة",
+    exportImageWarningDetail:
+      "تم حظر التحميل عبر المصادر (CORS) لعدد {{total}} من الصور المرتبطة فظهرت فارغة في التصدير. أعد رفعها إلى مكتبة الأصول أو استضفها مع تفعيل CORS.",
     buildingDeck: "جارٍ بناء العرض",
     slidesAdded_zero: "تمت إضافة {{count}} شريحة",
     slidesAdded_one: "تمت إضافة {{count}} شريحة",
