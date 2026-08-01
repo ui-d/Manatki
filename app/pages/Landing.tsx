@@ -13,6 +13,7 @@ import {
 } from "@/lib/landing-content";
 
 import { MarketingShell, STUDIO_PATH, useStudioHref } from "./landing/chrome";
+import { PixelCursor, PixelManatee } from "./landing/pixel-art";
 import {
   CtaLink,
   ScreenshotFrame,
@@ -111,12 +112,13 @@ function Hero({ studio }: { studio: StudioTarget }) {
         <HeroVisual />
       </div>
 
-      <div className="mt-16 border-t border-[var(--landing-line)] pt-8">
+      <div className="relative mt-16 border-t border-[var(--landing-line)] pt-8">
+        <PixelManatee className="absolute right-2 top-10 hidden md:block" />
         <p className="landing-mono text-[11px] uppercase text-[var(--landing-muted)]">
           Everything the editor can do, chat can do too
         </p>
         <ul className="mt-5 flex flex-col gap-3">
-          {PROMPT_EXAMPLES.map((prompt) => (
+          {PROMPT_EXAMPLES.map((prompt, index) => (
             <li key={prompt} className="flex items-baseline gap-3">
               <span
                 aria-hidden="true"
@@ -126,6 +128,9 @@ function Hero({ studio }: { studio: StudioTarget }) {
               </span>
               <span className="landing-mono text-[13px] leading-relaxed tracking-normal text-[var(--landing-bone)]">
                 {prompt}
+                {index === PROMPT_EXAMPLES.length - 1 && (
+                  <PixelCursor className="ml-2 translate-y-[2px]" />
+                )}
               </span>
             </li>
           ))}

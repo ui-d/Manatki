@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { trackLandingCta } from "@/lib/landing-analytics";
 import { GITHUB_URL } from "@/lib/landing-content";
 
+import { PixelManatee } from "./pixel-art";
 import { CtaLink, type StudioTarget } from "./primitives";
 
 /** The workspace. Marketing routes only point at it. */
@@ -180,8 +181,9 @@ function SiteFooter({ studio }: { studio: StudioTarget }) {
     <footer className="border-t border-[var(--landing-line)]">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-12 sm:flex-row sm:items-center">
         <div>
-          <p className="landing-display text-[15px] font-bold uppercase tracking-[0.2em]">
+          <p className="landing-display flex items-center gap-3 text-[15px] font-bold uppercase tracking-[0.2em]">
             Manatki
+            <PixelManatee scale={2} />
           </p>
           <p className="landing-mono mt-2 text-[11px] uppercase text-[var(--landing-muted)]">
             MIT licensed · Built on Agent Native

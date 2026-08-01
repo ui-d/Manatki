@@ -13,6 +13,7 @@ import {
 } from "@/lib/landing-subpages";
 
 import { MarketingShell, useStudioHref } from "./chrome";
+import { PixelSparkle } from "./pixel-art";
 import {
   CtaLink,
   ScreenshotFrame,
@@ -46,8 +47,9 @@ function PageHero({
     <div className="mx-auto max-w-6xl px-6 pb-16 pt-14 md:pb-24 md:pt-20">
       <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-16">
         <div>
-          <p className="landing-mono text-[11px] uppercase text-[var(--landing-gold)]">
+          <p className="landing-mono flex items-center gap-2.5 text-[11px] uppercase text-[var(--landing-gold)]">
             {eyebrow}
+            <PixelSparkle tone="gold" scale={2} />
           </p>
           <h1 className="landing-display mt-6 max-w-3xl text-4xl font-extrabold leading-[1.08] sm:text-5xl">
             {title}

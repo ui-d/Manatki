@@ -269,6 +269,69 @@ button[title="Open agent sidebar"] {
   letter-spacing: 0.08em;
 }
 
+/* Pixel-art accents on the marketing pages (see landing/pixel-art.tsx).
+   Two-frame sprites hard-swap opacity; wrappers add a slow bob or twinkle.
+   Everything stops under prefers-reduced-motion. */
+.landing .landing-px-f1 {
+  animation: landing-px-frame-a 0.9s linear infinite;
+}
+.landing .landing-px-f2 {
+  opacity: 0;
+  animation: landing-px-frame-b 0.9s linear infinite;
+}
+.landing .landing-px-bob {
+  animation: landing-px-bob 4.5s ease-in-out infinite;
+}
+.landing .landing-px-twinkle {
+  animation: landing-px-twinkle 2.6s ease-in-out infinite;
+}
+@keyframes landing-px-frame-a {
+  0%,
+  49.9% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes landing-px-frame-b {
+  0%,
+  49.9% {
+    opacity: 0;
+  }
+  50%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes landing-px-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+@keyframes landing-px-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing .landing-px-f1,
+  .landing .landing-px-f2,
+  .landing .landing-px-bob,
+  .landing .landing-px-twinkle {
+    animation: none;
+  }
+}
+
 .deck-grid-container {
   container-type: inline-size;
 }

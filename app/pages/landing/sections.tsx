@@ -15,6 +15,7 @@ import {
   type SectionPoint,
 } from "@/lib/landing-content";
 
+import { PixelSparkle } from "./pixel-art";
 import {
   CtaLink,
   ScreenshotFrame,
@@ -258,7 +259,16 @@ export function CtaBand({
 }) {
   const external = secondaryHref.startsWith("http");
   return (
-    <div className="rounded-xl border border-[var(--landing-line)] bg-[var(--landing-raised)] px-8 py-10 text-center">
+    <div className="relative rounded-xl border border-[var(--landing-line)] bg-[var(--landing-raised)] px-8 py-10 text-center">
+      <PixelSparkle
+        tone="gold"
+        className="absolute left-6 top-6 hidden sm:block"
+      />
+      <PixelSparkle
+        tone="coral"
+        scale={2}
+        className="absolute bottom-8 right-8 hidden sm:block"
+      />
       <p className="landing-display text-2xl font-extrabold sm:text-3xl">
         {title}
       </p>
