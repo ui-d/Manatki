@@ -1,16 +1,13 @@
 import { createAuthPlugin } from "@agent-native/core/server";
 
+import { buildLoginHtml } from "./login-page";
+
 export default createAuthPlugin({
-  marketing: {
-    appName: "Manatki",
-    tagline:
-      "Your AI agent crafts presentations and marketing assets alongside you.",
-    features: [
-      "Generate entire decks or social campaigns from a single prompt",
-      "Surgical edits on any slide or asset while you review",
-      "Real-time collaboration between you and the agent",
-    ],
-  },
+  // Full-document replacement (see login-page.ts): the built-in page has no
+  // theming seam, and this is the only way to put the sign-in flow on the
+  // cobalt-stage design the marketing pages use. Note `loginHtml` supersedes
+  // the old `marketing` block entirely.
+  loginHtml: buildLoginHtml(),
   publicPaths: [
     "/share",
     "/p",
