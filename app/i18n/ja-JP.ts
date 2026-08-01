@@ -304,6 +304,17 @@ const messages = {
     downloadAllPngZip: "すべて ZIP でダウンロード",
     exportPngError: "PNG としてエクスポート中に問題が発生しました。",
   },
+  brandCheck: {
+    title: "ブランドチェック",
+    checkedAgainst: "{{title}} と照合",
+    clean: "ブランドに準拠 — 問題は見つかりませんでした。",
+    fixWithAi: "AIで修正",
+    fixMessage: "ブランドチェックで見つかった{{total}}件の問題を修正",
+    recheck: "再チェック",
+    failed: "ブランドチェックに失敗しました",
+    slide: "スライド{{slide}}",
+    goToSlide: "スライドへ移動",
+  },
   share: {
     snapshotTab: "スナップショットリンク",
     snapshotDescription:

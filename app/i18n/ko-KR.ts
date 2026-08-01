@@ -299,6 +299,17 @@ const messages = {
     downloadAllPngZip: "모두 ZIP으로 다운로드",
     exportPngError: "PNG로 내보내는 중 문제가 발생했습니다.",
   },
+  brandCheck: {
+    title: "브랜드 점검",
+    checkedAgainst: "{{title}} 기준으로 점검",
+    clean: "브랜드에 부합 — 문제가 없습니다.",
+    fixWithAi: "AI로 수정",
+    fixMessage: "브랜드 점검에서 발견된 문제 {{total}}건 수정",
+    recheck: "다시 점검",
+    failed: "브랜드 점검에 실패했습니다",
+    slide: "슬라이드 {{slide}}",
+    goToSlide: "슬라이드로 이동",
+  },
   share: {
     snapshotTab: "스냅샷 링크",
     snapshotDescription:

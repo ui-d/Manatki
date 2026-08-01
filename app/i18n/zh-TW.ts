@@ -290,6 +290,17 @@ const messages = {
     downloadAllPngZip: "全部下載為 ZIP",
     exportPngError: "匯出為 PNG 時出了點問題。",
   },
+  brandCheck: {
+    title: "品牌檢查",
+    checkedAgainst: "對照 {{title}} 檢查",
+    clean: "符合品牌規範——未發現問題。",
+    fixWithAi: "用 AI 修復",
+    fixMessage: "修復品牌檢查發現的 {{total}} 個問題",
+    recheck: "重新檢查",
+    failed: "品牌檢查失敗",
+    slide: "第 {{slide}} 頁",
+    goToSlide: "跳至該頁",
+  },
   share: {
     snapshotTab: "快照連結",
     snapshotDescription:

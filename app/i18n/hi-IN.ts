@@ -297,6 +297,17 @@ const messages = {
     downloadAllPngZip: "सभी को ZIP के रूप में डाउनलोड करें",
     exportPngError: "PNG के रूप में निर्यात करते समय कुछ गलत हुआ।",
   },
+  brandCheck: {
+    title: "ब्रांड जाँच",
+    checkedAgainst: "{{title}} के विरुद्ध जाँचा गया",
+    clean: "ब्रांड के अनुरूप — कोई समस्या नहीं मिली।",
+    fixWithAi: "AI से ठीक करें",
+    fixMessage: "ब्रांड जाँच में मिलीं {{total}} समस्याएँ ठीक करें",
+    recheck: "फिर से जाँचें",
+    failed: "ब्रांड जाँच विफल रही",
+    slide: "स्लाइड {{slide}}",
+    goToSlide: "स्लाइड पर जाएँ",
+  },
   share: {
     snapshotTab: "स्नैपशॉट लिंक",
     snapshotDescription:

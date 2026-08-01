@@ -957,6 +957,7 @@ export default function DeckEditor() {
         onUpdateSlide={(updates) =>
           currentSlide && updateSlide(id, currentSlide.id, updates)
         }
+        onGoToSlide={(slideId) => setActiveSlideId(slideId)}
         activeUsers={slideActiveUsers.filter((u) => u.email !== session?.email)}
         agentPresent={agentPresent}
         agentActive={agentActive}

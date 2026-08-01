@@ -300,6 +300,17 @@ const messages = {
     downloadAllPngZip: "تنزيل الكل كملف ZIP",
     exportPngError: "حدث خطأ أثناء التصدير بصيغة PNG.",
   },
+  brandCheck: {
+    title: "فحص العلامة التجارية",
+    checkedAgainst: "مقارنةً بـ {{title}}",
+    clean: "متوافق مع العلامة التجارية — لا توجد مشاكل.",
+    fixWithAi: "إصلاح بالذكاء الاصطناعي",
+    fixMessage: "إصلاح {{total}} مشاكل في العلامة التجارية",
+    recheck: "إعادة الفحص",
+    failed: "فشل فحص العلامة التجارية",
+    slide: "الشريحة {{slide}}",
+    goToSlide: "الانتقال إلى الشريحة",
+  },
   share: {
     snapshotTab: "رابط اللقطة",
     snapshotDescription:

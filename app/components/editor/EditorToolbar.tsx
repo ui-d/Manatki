@@ -67,6 +67,10 @@ import {
 } from "@/lib/aspect-ratios";
 import type { GoogleSlidesExportResult } from "@/lib/export-google-slides-client";
 import {
+  SIZE_CATEGORY_LABEL_KEYS,
+  presetLabel,
+} from "@/lib/size-preset-labels";
+import {
   MAX_SLIDE_DIM,
   MIN_SLIDE_DIM,
   SIZE_PRESETS,
@@ -79,13 +83,10 @@ import {
   type SizePreset,
   type SlideSize,
 } from "@/lib/slide-size";
-import {
-  SIZE_CATEGORY_LABEL_KEYS,
-  presetLabel,
-} from "@/lib/size-preset-labels";
 import { parseUploadResponse } from "@/lib/upload-response";
 import { shortcutLabel } from "@/lib/utils";
 
+import BrandCheckButton from "./BrandCheckButton";
 import { ExportMenu } from "./ExportMenu";
 import SnapshotLinkTab from "./SnapshotLinkTab";
 interface EditorToolbarProps {
@@ -114,6 +115,8 @@ interface EditorToolbarProps {
   canRedo: boolean;
   currentSlide?: Slide;
   onUpdateSlide?: (updates: Partial<Omit<Slide, "id">>) => void;
+  /** Jump the editor to a slide (used by brand-check findings). */
+  onGoToSlide?: (slideId: string) => void;
   /** Active users on the current slide (from collab awareness) */
   activeUsers?: CollabUser[];
   /** Whether the agent has a durable presence entry on this slide */
@@ -284,6 +287,7 @@ export default function EditorToolbar({
   canRedo,
   currentSlide,
   onUpdateSlide,
+  onGoToSlide,
   activeUsers,
   agentPresent,
   agentActive,
@@ -1042,6 +1046,16 @@ graph TD
           </TooltipTrigger>
           <TooltipContent>{t("editorToolbar.comments")}</TooltipContent>
         </Tooltip>
+      )}
+
+      {/* Brand check — only meaningful when a design system is linked */}
+      {deck.designSystemId && (
+        <BrandCheckButton
+          deckId={deckId}
+          deckTitle={deckTitle}
+          canEdit={canEdit}
+          onGoToSlide={onGoToSlide}
+        />
       )}
 
       {/* Export / Share menu (export, duplicate, share) */}

@@ -312,6 +312,17 @@ const messages = {
     downloadAllPngZip: "Tout télécharger en ZIP",
     exportPngError: "Une erreur est survenue lors de l’export en PNG.",
   },
+  brandCheck: {
+    title: "Vérification de marque",
+    checkedAgainst: "Vérifié avec {{title}}",
+    clean: "Conforme à la marque — aucun problème détecté.",
+    fixWithAi: "Corriger avec l'IA",
+    fixMessage: "Corriger {{total}} problèmes de marque détectés",
+    recheck: "Revérifier",
+    failed: "Échec de la vérification de marque",
+    slide: "Diapositive {{slide}}",
+    goToSlide: "Aller à la diapositive",
+  },
   share: {
     snapshotTab: "Lien d'instantané",
     snapshotDescription:

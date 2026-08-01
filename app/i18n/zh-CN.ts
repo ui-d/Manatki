@@ -290,6 +290,17 @@ const messages = {
     downloadAllPngZip: "全部下载为 ZIP",
     exportPngError: "导出为 PNG 时出了点问题。",
   },
+  brandCheck: {
+    title: "品牌检查",
+    checkedAgainst: "对照 {{title}} 检查",
+    clean: "符合品牌规范——未发现问题。",
+    fixWithAi: "用 AI 修复",
+    fixMessage: "修复品牌检查发现的 {{total}} 个问题",
+    recheck: "重新检查",
+    failed: "品牌检查失败",
+    slide: "第 {{slide}} 页",
+    goToSlide: "跳转到该页",
+  },
   share: {
     snapshotTab: "快照链接",
     snapshotDescription:

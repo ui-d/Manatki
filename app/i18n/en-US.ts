@@ -303,6 +303,17 @@ const messages = {
     downloadAllPngZip: "Download all as ZIP",
     exportPngError: "Something went wrong exporting as PNG.",
   },
+  brandCheck: {
+    title: "Brand check",
+    checkedAgainst: "Against {{title}}",
+    clean: "On brand — no issues found.",
+    fixWithAi: "Fix with AI",
+    fixMessage: "Fix {{total}} brand issues found by brand check",
+    recheck: "Re-check",
+    failed: "Brand check failed",
+    slide: "Slide {{slide}}",
+    goToSlide: "Go to slide",
+  },
   share: {
     snapshotTab: "Snapshot link",
     snapshotDescription:

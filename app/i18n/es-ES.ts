@@ -309,6 +309,17 @@ const messages = {
     downloadAllPngZip: "Descargar todo como ZIP",
     exportPngError: "Algo salió mal al exportar como PNG.",
   },
+  brandCheck: {
+    title: "Comprobación de marca",
+    checkedAgainst: "Comparado con {{title}}",
+    clean: "Todo en línea con la marca: sin problemas.",
+    fixWithAi: "Corregir con IA",
+    fixMessage: "Corregir {{total}} problemas de marca detectados",
+    recheck: "Volver a comprobar",
+    failed: "Falló la comprobación de marca",
+    slide: "Diapositiva {{slide}}",
+    goToSlide: "Ir a la diapositiva",
+  },
   share: {
     snapshotTab: "Enlace de instantánea",
     snapshotDescription:
