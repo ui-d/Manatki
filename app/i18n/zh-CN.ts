@@ -292,7 +292,8 @@ const messages = {
   },
   share: {
     snapshotTab: "快照链接",
-    snapshotDescription: "创建此演示文稿冻结副本的公开只读链接。之后的编辑不会包含在内。",
+    snapshotDescription:
+      "创建此演示文稿冻结副本的公开只读链接。之后的编辑不会包含在内。",
     activeLinks: "有效链接",
     revoke: "撤销链接",
     noLinks: "暂无快照链接。",
@@ -301,6 +302,10 @@ const messages = {
     viewSummary: "浏览量：{{views}} · 访客：{{viewers}}",
     noViewsYet: "暂无浏览",
     lastViewed: "最近浏览：{{date}}",
+    slideStats: "幻灯片互动数据",
+    slideStatRow: "第 {{slide}} 页：{{viewers}} 位观看者 · 平均 {{seconds}} 秒",
+    noSlideStats: "暂无各页数据。",
+    statsFailed: "统计数据加载失败",
     revokeFailed: "撤销链接失败",
     createFailed: "无法创建共享链接",
     title: "共享演示文稿",

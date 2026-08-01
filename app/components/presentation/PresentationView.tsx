@@ -28,6 +28,8 @@ interface PresentationViewProps {
   deckId: string;
   startIndex?: number;
   aspectRatio?: AspectRatio;
+  /** Fires with the visible slide index on mount and after every change. */
+  onSlideChange?: (index: number) => void;
 }
 
 // ─── Element animation helpers ────────────────────────────────────────────────
@@ -156,6 +158,7 @@ export default function PresentationView({
   deckId,
   startIndex = 0,
   aspectRatio,
+  onSlideChange,
 }: PresentationViewProps) {
   const t = useT();
   const safeSlides = useMemo(
@@ -204,6 +207,10 @@ export default function PresentationView({
   useEffect(() => {
     setCurrentIndex(clampIndex(startIndex));
   }, [clampIndex, startIndex]);
+
+  useEffect(() => {
+    onSlideChange?.(currentIndex);
+  }, [onSlideChange, currentIndex]);
 
   const currentSlide = safeSlides[currentIndex];
   const animSteps = currentSlide ? getAnimationSteps(currentSlide) : null;

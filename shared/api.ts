@@ -98,6 +98,24 @@ export interface ShareLinkEventsRequest {
   }>;
 }
 
+/** Per-slide engagement aggregates derived from `slide` dwell events. */
+export interface ShareLinkSlideStat {
+  slideIndex: number;
+  /** Distinct viewer sessions that dwelt on this slide. */
+  viewers: number;
+  totalDwellMs: number;
+  avgDwellMs: number;
+}
+
+/** GET /api/share/:token/stats — owner/admin-facing link analytics. */
+export interface ShareLinkStatsResponse {
+  token: string;
+  viewCount: number;
+  uniqueSessions: number;
+  lastViewedAt: string | null;
+  slides: ShareLinkSlideStat[];
+}
+
 export interface SharedDeckResponse {
   title: string;
   slides: SharedDeckSlide[];

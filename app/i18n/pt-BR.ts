@@ -307,7 +307,8 @@ const messages = {
   },
   share: {
     snapshotTab: "Link de captura",
-    snapshotDescription: "Crie um link público somente leitura para uma cópia congelada desta apresentação. Edições posteriores não são incluídas.",
+    snapshotDescription:
+      "Crie um link público somente leitura para uma cópia congelada desta apresentação. Edições posteriores não são incluídas.",
     activeLinks: "Links ativos",
     revoke: "Revogar link",
     noLinks: "Ainda não há links de captura.",
@@ -316,6 +317,11 @@ const messages = {
     viewSummary: "Visualizações: {{views}} · Visitantes: {{viewers}}",
     noViewsYet: "Ainda sem visualizações",
     lastViewed: "Última visualização: {{date}}",
+    slideStats: "Engajamento por slide",
+    slideStatRow:
+      "Slide {{slide}}: {{viewers}} espectadores · média {{seconds}} s",
+    noSlideStats: "Ainda não há dados por slide.",
+    statsFailed: "Falha ao carregar as estatísticas",
     revokeFailed: "Falha ao revogar o link",
     createFailed: "Não foi possível criar o link de compartilhamento",
     title: "Compartilhar apresentação",
@@ -476,8 +482,7 @@ const messages = {
     clearAll: "Limpar tudo",
     elements: "Elementos",
     autoFill: "Preencher automaticamente",
-    noAnimatableElements:
-      "Nenhum elemento animável detectado neste slide.",
+    noAnimatableElements: "Nenhum elemento animável detectado neste slide.",
   },
   generateSlides: {
     title: "Gerar slides com IA",

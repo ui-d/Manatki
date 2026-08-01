@@ -292,7 +292,8 @@ const messages = {
   },
   share: {
     snapshotTab: "快照連結",
-    snapshotDescription: "建立此簡報凍結副本的公開唯讀連結。之後的編輯不會包含在內。",
+    snapshotDescription:
+      "建立此簡報凍結副本的公開唯讀連結。之後的編輯不會包含在內。",
     activeLinks: "有效連結",
     revoke: "撤銷連結",
     noLinks: "尚無快照連結。",
@@ -301,6 +302,10 @@ const messages = {
     viewSummary: "瀏覽量：{{views}} · 訪客：{{viewers}}",
     noViewsYet: "尚無瀏覽",
     lastViewed: "最近瀏覽：{{date}}",
+    slideStats: "投影片互動數據",
+    slideStatRow: "第 {{slide}} 頁：{{viewers}} 位觀看者 · 平均 {{seconds}} 秒",
+    noSlideStats: "尚無各頁資料。",
+    statsFailed: "統計資料載入失敗",
     revokeFailed: "撤銷連結失敗",
     createFailed: "無法建立共用連結",
     title: "共用簡報",

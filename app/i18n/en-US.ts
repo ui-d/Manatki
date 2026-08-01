@@ -305,7 +305,8 @@ const messages = {
   },
   share: {
     snapshotTab: "Snapshot link",
-    snapshotDescription: "Create a public read-only link to a frozen copy of this deck. Later edits are not included.",
+    snapshotDescription:
+      "Create a public read-only link to a frozen copy of this deck. Later edits are not included.",
     activeLinks: "Active links",
     revoke: "Revoke link",
     noLinks: "No snapshot links yet.",
@@ -314,6 +315,10 @@ const messages = {
     viewSummary: "Views: {{views}} · Viewers: {{viewers}}",
     noViewsYet: "No views yet",
     lastViewed: "Last viewed {{date}}",
+    slideStats: "Slide engagement",
+    slideStatRow: "Slide {{slide}}: {{viewers}} viewers · avg {{seconds}}s",
+    noSlideStats: "No per-slide data yet.",
+    statsFailed: "Failed to load stats",
     revokeFailed: "Failed to revoke link",
     createFailed: "Failed to create share link",
     title: "Share Presentation",
@@ -640,8 +645,7 @@ const messages = {
     newDeckCardTitle: "New presentation",
     newSocialCardTitle: "New social assets",
     newDeckPromptTitleSocial: "New social assets",
-    newDeckPlaceholderSocial:
-      "Describe the post, story, or banner you need...",
+    newDeckPlaceholderSocial: "Describe the post, story, or banner you need...",
     showAllKinds: "Show all projects",
     showDecksOnly: "Show presentations only",
     showSocialOnly: "Show social assets only",

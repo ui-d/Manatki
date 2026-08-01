@@ -310,7 +310,8 @@ const messages = {
   },
   share: {
     snapshotTab: "Snapshot-Link",
-    snapshotDescription: "Erstelle einen öffentlichen, schreibgeschützten Link zu einer eingefrorenen Kopie dieses Decks. Spätere Änderungen sind nicht enthalten.",
+    snapshotDescription:
+      "Erstelle einen öffentlichen, schreibgeschützten Link zu einer eingefrorenen Kopie dieses Decks. Spätere Änderungen sind nicht enthalten.",
     activeLinks: "Aktive Links",
     revoke: "Link widerrufen",
     noLinks: "Noch keine Snapshot-Links.",
@@ -319,6 +320,10 @@ const messages = {
     viewSummary: "Aufrufe: {{views}} · Betrachter: {{viewers}}",
     noViewsYet: "Noch keine Aufrufe",
     lastViewed: "Zuletzt angesehen am {{date}}",
+    slideStats: "Folien-Engagement",
+    slideStatRow: "Folie {{slide}}: {{viewers}} Betrachter · Ø {{seconds}} s",
+    noSlideStats: "Noch keine Daten pro Folie.",
+    statsFailed: "Statistiken konnten nicht geladen werden",
     revokeFailed: "Link konnte nicht widerrufen werden",
     createFailed: "Freigabelink konnte nicht erstellt werden",
     title: "Präsentation teilen",

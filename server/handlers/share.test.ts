@@ -18,7 +18,9 @@ const mockGetQuery = vi.hoisted(() =>
   vi.fn((..._args: unknown[]) => ({}) as Record<string, unknown>),
 );
 const selectRows = vi.hoisted(() => ({ current: [] as unknown[] }));
-const statsRows = vi.hoisted(() => ({ current: [] as unknown[] }));
+// Grouped queries consume results in call order — handlers that aggregate
+// twice (overall stats, then per-slide stats) queue two entries.
+const groupByResults = vi.hoisted(() => ({ current: [] as unknown[][] }));
 const eventCount = vi.hoisted(() => ({ current: 0 }));
 const updatedSets = vi.hoisted(() => ({ current: [] as unknown[] }));
 
@@ -35,6 +37,7 @@ vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
   gt: vi.fn(),
   inArray: vi.fn(),
+  isNotNull: vi.fn(),
   isNull: vi.fn(),
   lt: vi.fn(),
   sql: vi.fn(),
@@ -60,7 +63,7 @@ vi.mock("../db", () => ({
         where: vi.fn(() => ({
           limit: vi.fn(async () => selectRows.current),
           orderBy: vi.fn(async () => selectRows.current),
-          groupBy: vi.fn(async () => statsRows.current),
+          groupBy: vi.fn(async () => groupByResults.current.shift() ?? []),
         })),
       })),
     })),
@@ -104,6 +107,7 @@ vi.mock("./request-auth-context.js", () => ({
 }));
 
 import {
+  getShareLinkStats,
   getSharedDeck,
   listShareLinks,
   recordShareLinkEvents,
@@ -406,7 +410,7 @@ describe("listShareLinks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     selectRows.current = [];
-    statsRows.current = [];
+    groupByResults.current = [];
     mockGetQuery.mockReturnValue({ deckId: "deck-1" });
     mockResolveSlidesRequestAuthContext.mockResolvedValue({
       email: "owner@example.com",
@@ -444,13 +448,15 @@ describe("listShareLinks", () => {
     ];
     // Postgres returns bigint aggregates as strings — the handler must
     // coerce them so the client gets numbers.
-    statsRows.current = [
-      {
-        token: "token-1",
-        viewCount: "3",
-        uniqueSessions: "2",
-        lastViewedAt: "2026-08-01T10:00:00.000Z",
-      },
+    groupByResults.current = [
+      [
+        {
+          token: "token-1",
+          viewCount: "3",
+          uniqueSessions: "2",
+          lastViewedAt: "2026-08-01T10:00:00.000Z",
+        },
+      ],
     ];
 
     const result = (await listShareLinks({} as any)) as Record<string, unknown>;
@@ -481,6 +487,155 @@ describe("listShareLinks", () => {
 
     expect(mockSetResponseStatus).toHaveBeenCalledWith({}, 403);
     expect(result.links).toBeUndefined();
+  });
+});
+
+describe("getShareLinkStats", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    selectRows.current = [];
+    groupByResults.current = [];
+    mockGetRouterParam.mockReturnValue("token-1");
+    mockResolveSlidesRequestAuthContext.mockResolvedValue({
+      email: "owner@example.com",
+    });
+    mockWithSlidesRequestContext.mockImplementation(async (_event, callback) =>
+      callback(),
+    );
+  });
+
+  it("returns overall and per-slide aggregates to the minting owner", async () => {
+    selectRows.current = [
+      {
+        token: "token-1",
+        ownerEmail: "owner@example.com",
+        deckId: "deck-1",
+        createdAt: new Date().toISOString(),
+        revokedAt: null,
+      },
+    ];
+    // Postgres returns bigint aggregates as strings; slide rows arrive
+    // unsorted and must come back ordered by slide index.
+    groupByResults.current = [
+      [
+        {
+          token: "token-1",
+          viewCount: "4",
+          uniqueSessions: "2",
+          lastViewedAt: "2026-08-01T10:00:00.000Z",
+        },
+      ],
+      [
+        { slideIndex: 2, viewers: "1", totalDwellMs: "3000" },
+        { slideIndex: 0, viewers: "2", totalDwellMs: "9000" },
+      ],
+    ];
+
+    const result = (await getShareLinkStats({} as any)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(result).toEqual({
+      token: "token-1",
+      viewCount: 4,
+      uniqueSessions: 2,
+      lastViewedAt: "2026-08-01T10:00:00.000Z",
+      slides: [
+        { slideIndex: 0, viewers: 2, totalDwellMs: 9000, avgDwellMs: 4500 },
+        { slideIndex: 2, viewers: 1, totalDwellMs: 3000, avgDwellMs: 3000 },
+      ],
+    });
+  });
+
+  it("returns zeroed stats when the link was never viewed", async () => {
+    selectRows.current = [
+      {
+        token: "token-1",
+        ownerEmail: "owner@example.com",
+        deckId: "deck-1",
+        createdAt: new Date().toISOString(),
+        revokedAt: null,
+      },
+    ];
+
+    const result = (await getShareLinkStats({} as any)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(result).toEqual({
+      token: "token-1",
+      viewCount: 0,
+      uniqueSessions: 0,
+      lastViewedAt: null,
+      slides: [],
+    });
+  });
+
+  it("401s without a session", async () => {
+    mockResolveSlidesRequestAuthContext.mockResolvedValue({ email: null });
+
+    const result = (await getShareLinkStats({} as any)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(mockSetResponseStatus).toHaveBeenCalledWith({}, 401);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("404s for missing tokens", async () => {
+    const result = (await getShareLinkStats({} as any)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(mockSetResponseStatus).toHaveBeenCalledWith({}, 404);
+    expect(result.error).toBe("Share link not found");
+  });
+
+  it("404s for a non-owner without deck access, exactly like a missing token", async () => {
+    selectRows.current = [
+      {
+        token: "token-1",
+        ownerEmail: "someone-else@example.com",
+        deckId: "deck-1",
+        createdAt: new Date().toISOString(),
+        revokedAt: null,
+      },
+    ];
+    const { ForbiddenError } = await import("@agent-native/core/sharing");
+    mockAssertAccess.mockRejectedValue(new (ForbiddenError as any)("no"));
+
+    const result = (await getShareLinkStats({} as any)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(mockSetResponseStatus).toHaveBeenCalledWith({}, 404);
+    expect(result.error).toBe("Share link not found");
+  });
+
+  it("lets a deck admin read stats for a link minted by someone else", async () => {
+    selectRows.current = [
+      {
+        token: "token-1",
+        ownerEmail: "someone-else@example.com",
+        deckId: "deck-1",
+        createdAt: new Date().toISOString(),
+        revokedAt: null,
+      },
+    ];
+    mockAssertAccess.mockResolvedValue({ resource: {} });
+
+    const result = (await getShareLinkStats({} as any)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(mockAssertAccess).toHaveBeenCalledWith("deck", "deck-1", "admin");
+    expect(result.token).toBe("token-1");
   });
 });
 

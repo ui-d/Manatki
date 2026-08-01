@@ -16,7 +16,10 @@ test.describe("share-link lifecycle", () => {
   test.beforeAll(() => {
     deckId = seedDeck({
       title: "E2E Share Deck",
-      slides: [{ id: "slide-1", content: slideHtml("Shared Snapshot") }],
+      slides: [
+        { id: "slide-1", content: slideHtml("Shared Snapshot") },
+        { id: "slide-2", content: slideHtml("Second Snapshot Slide") },
+      ],
     });
   });
 
@@ -97,6 +100,41 @@ test.describe("share-link lifecycle", () => {
     const viewedLink = statsBody.links.find((l) => l.token === shareToken);
     expect(viewedLink?.uniqueSessions).toBe(1);
     expect(viewedLink?.lastViewedAt).toBeTruthy();
+
+    // Advancing to the next slide flushes a dwell event for slide 0
+    // (dwells under 500ms are dropped as rapid flips, hence the wait).
+    await anonPage.waitForTimeout(800);
+    const slideEventPost = anonPage.waitForResponse(
+      (res) =>
+        res.url().includes(`/api/share/${shareToken}/events`) &&
+        res.request().method() === "POST" &&
+        (res.request().postData() ?? "").includes('"slide"'),
+    );
+    await anonPage.keyboard.press("ArrowRight");
+    await expect(
+      anonPage.getByText("Second Snapshot Slide").first(),
+    ).toBeVisible();
+    expect((await slideEventPost).ok()).toBe(true);
+
+    // The owner-facing stats endpoint aggregates the dwell per slide.
+    const linkStatsRes = await page.request.get(
+      `/api/share/${shareToken}/stats`,
+    );
+    expect(linkStatsRes.ok()).toBe(true);
+    const linkStats = (await linkStatsRes.json()) as {
+      viewCount: number;
+      uniqueSessions: number;
+      slides: Array<{
+        slideIndex: number;
+        viewers: number;
+        avgDwellMs: number;
+      }>;
+    };
+    expect(linkStats.viewCount).toBe(1);
+    expect(linkStats.uniqueSessions).toBe(1);
+    const firstSlideStat = linkStats.slides.find((s) => s.slideIndex === 0);
+    expect(firstSlideStat?.viewers).toBe(1);
+    expect(firstSlideStat?.avgDwellMs).toBeGreaterThanOrEqual(500);
 
     // Revoke, then the token must 404 for API and page alike.
     const revokeRes = await page.request.delete(`/api/share/${shareToken}`);

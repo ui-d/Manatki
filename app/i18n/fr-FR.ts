@@ -314,7 +314,8 @@ const messages = {
   },
   share: {
     snapshotTab: "Lien d'instantané",
-    snapshotDescription: "Créez un lien public en lecture seule vers une copie figée de cette présentation. Les modifications ultérieures ne sont pas incluses.",
+    snapshotDescription:
+      "Créez un lien public en lecture seule vers une copie figée de cette présentation. Les modifications ultérieures ne sont pas incluses.",
     activeLinks: "Liens actifs",
     revoke: "Révoquer le lien",
     noLinks: "Aucun lien d'instantané pour le moment.",
@@ -323,6 +324,11 @@ const messages = {
     viewSummary: "Vues : {{views}} · Visiteurs : {{viewers}}",
     noViewsYet: "Aucune vue pour l'instant",
     lastViewed: "Dernière consultation : {{date}}",
+    slideStats: "Engagement par diapositive",
+    slideStatRow:
+      "Diapositive {{slide}} : {{viewers}} spectateurs · moy. {{seconds}} s",
+    noSlideStats: "Pas encore de données par diapositive.",
+    statsFailed: "Impossible de charger les statistiques",
     revokeFailed: "Échec de la révocation du lien",
     createFailed: "Impossible de créer le lien de partage",
     title: "Partager la présentation",

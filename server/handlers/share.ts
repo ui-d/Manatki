@@ -6,10 +6,21 @@ import { toSharedDeckSlide } from "@shared/api";
 import type {
   ShareDeckRequest,
   ShareDeckResponse,
+  ShareLinkStatsResponse,
   ShareLinkSummary,
   SharedDeckResponse,
 } from "@shared/api";
-import { and, desc, eq, gt, inArray, isNull, lt, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  sql,
+} from "drizzle-orm";
 import {
   defineEventHandler,
   getQuery,
@@ -71,11 +82,7 @@ export const shareDeck = defineEventHandler(async (event) => {
   );
 });
 
-async function createShareLink(
-  event: any,
-  deckId: string,
-  ownerEmail: string,
-) {
+async function createShareLink(event: any, deckId: string, ownerEmail: string) {
   const db = getDb();
   let storedDeck: any;
   let title = "Untitled";
@@ -165,7 +172,8 @@ export const getSharedDeck = defineEventHandler(async (event) => {
   // Legacy rows store a bare slide array; newer rows wrap it in an
   // envelope that also carries the project kind.
   const parsed = JSON.parse(shared.slides);
-  const isEnvelope = !Array.isArray(parsed) && parsed && typeof parsed === "object";
+  const isEnvelope =
+    !Array.isArray(parsed) && parsed && typeof parsed === "object";
   const slides = isEnvelope
     ? Array.isArray(parsed.slides)
       ? parsed.slides
@@ -365,6 +373,113 @@ export const recordShareLinkEvents = defineEventHandler(async (event) => {
 });
 
 /**
+ * Manage-level check shared by revoke and stats: the user who minted the
+ * link, or anyone with admin access on the source deck. Callers must answer
+ * a failed check with the same 404 as a missing token.
+ */
+async function canManageShareLink(
+  link: { ownerEmail: string | null; deckId: string | null },
+  email: string,
+): Promise<boolean> {
+  if (link.ownerEmail === email) return true;
+  if (!link.deckId) return false;
+  try {
+    await assertAccess("deck", link.deckId, "admin");
+    return true;
+  } catch (err) {
+    if (err instanceof ForbiddenError) return false;
+    throw err;
+  }
+}
+
+/**
+ * GET /api/share/:token/stats
+ * Per-slide engagement for a snapshot link — same access bar as revoking
+ * it, and permission failures 404 exactly like missing tokens so tokens
+ * cannot be probed.
+ */
+export const getShareLinkStats = defineEventHandler(async (event) => {
+  const token = getRouterParam(event, "token");
+  if (!token) {
+    setResponseStatus(event, 400);
+    return { error: "Token is required" };
+  }
+
+  const session = await resolveSlidesRequestAuthContext(event);
+  if (!session.email) {
+    setResponseStatus(event, 401);
+    return { error: "Unauthorized" };
+  }
+
+  return withSlidesRequestContext(
+    event,
+    async () => {
+      const db = getDb();
+      const rows = await db
+        .select()
+        .from(schema.deckShareLinks)
+        .where(eq(schema.deckShareLinks.token, token))
+        .limit(1);
+      const link = rows[0];
+
+      if (!link || !(await canManageShareLink(link, session.email as string))) {
+        setResponseStatus(event, 404);
+        return { error: "Share link not found" };
+      }
+
+      const overallRows = await db
+        .select({
+          token: schema.shareLinkEvents.token,
+          viewCount: sql<string>`sum(case when ${schema.shareLinkEvents.eventType} = 'view' then 1 else 0 end)`,
+          uniqueSessions: sql<string>`count(distinct ${schema.shareLinkEvents.sessionId})`,
+          lastViewedAt: sql<string>`max(case when ${schema.shareLinkEvents.eventType} = 'view' then ${schema.shareLinkEvents.createdAt} end)`,
+        })
+        .from(schema.shareLinkEvents)
+        .where(eq(schema.shareLinkEvents.token, token))
+        .groupBy(schema.shareLinkEvents.token);
+      const overall = overallRows[0];
+
+      const slideRows = await db
+        .select({
+          slideIndex: schema.shareLinkEvents.slideIndex,
+          viewers: sql<string>`count(distinct ${schema.shareLinkEvents.sessionId})`,
+          totalDwellMs: sql<string>`coalesce(sum(${schema.shareLinkEvents.dwellMs}), 0)`,
+        })
+        .from(schema.shareLinkEvents)
+        .where(
+          and(
+            eq(schema.shareLinkEvents.token, token),
+            eq(schema.shareLinkEvents.eventType, "slide"),
+            isNotNull(schema.shareLinkEvents.slideIndex),
+          ),
+        )
+        .groupBy(schema.shareLinkEvents.slideIndex);
+
+      const response: ShareLinkStatsResponse = {
+        token,
+        viewCount: Number(overall?.viewCount ?? 0),
+        uniqueSessions: Number(overall?.uniqueSessions ?? 0),
+        lastViewedAt: overall?.lastViewedAt ?? null,
+        slides: slideRows
+          .map((row) => {
+            const viewers = Number(row.viewers);
+            const totalDwellMs = Number(row.totalDwellMs);
+            return {
+              slideIndex: Number(row.slideIndex),
+              viewers,
+              totalDwellMs,
+              avgDwellMs: viewers > 0 ? Math.round(totalDwellMs / viewers) : 0,
+            };
+          })
+          .sort((a, b) => a.slideIndex - b.slideIndex),
+      };
+      return response;
+    },
+    session,
+  );
+});
+
+/**
  * DELETE /api/share/:token
  * Revoke a snapshot link. Allowed for the user who minted it, or anyone
  * with admin access on the source deck.
@@ -400,16 +515,7 @@ export const revokeShareLink = defineEventHandler(async (event) => {
         return { error: "Share link not found" };
       }
 
-      let allowed = link.ownerEmail === session.email;
-      if (!allowed && link.deckId) {
-        try {
-          await assertAccess("deck", link.deckId, "admin");
-          allowed = true;
-        } catch (err) {
-          if (!(err instanceof ForbiddenError)) throw err;
-        }
-      }
-      if (!allowed) {
+      if (!(await canManageShareLink(link, session.email as string))) {
         setResponseStatus(event, 404);
         return { error: "Share link not found" };
       }
@@ -441,15 +547,17 @@ export async function revokeShareLinksForDeck(deckId: string): Promise<void> {
 
   // Subquery instead of select-then-delete: one round trip, and it also
   // covers links already revoked individually (whose events are gone anyway).
-  await db.delete(schema.shareLinkEvents).where(
-    inArray(
-      schema.shareLinkEvents.token,
-      db
-        .select({ token: schema.deckShareLinks.token })
-        .from(schema.deckShareLinks)
-        .where(eq(schema.deckShareLinks.deckId, deckId)),
-    ),
-  );
+  await db
+    .delete(schema.shareLinkEvents)
+    .where(
+      inArray(
+        schema.shareLinkEvents.token,
+        db
+          .select({ token: schema.deckShareLinks.token })
+          .from(schema.deckShareLinks)
+          .where(eq(schema.deckShareLinks.deckId, deckId)),
+      ),
+    );
 
   await db
     .update(schema.deckShareLinks)

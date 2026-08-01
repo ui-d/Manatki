@@ -2,13 +2,17 @@ import { appBasePath } from "@agent-native/core/client/api-path";
 import { useT } from "@agent-native/core/client/i18n";
 import type { SharedDeckResponse } from "@shared/api";
 import { IconAlertCircle } from "@tabler/icons-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "react-router";
 
 import PresentationView from "@/components/presentation/PresentationView";
 import SharedAssetGallery from "@/components/presentation/SharedAssetGallery";
 import type { Slide } from "@/context/DeckContext";
-import { recordShareView } from "@/lib/share-view-event";
+import {
+  createShareDwellTracker,
+  recordShareView,
+  type ShareDwellTracker,
+} from "@/lib/share-view-event";
 
 interface SharedPresentationProps {
   initialDeck?: SharedDeckResponse | null;
@@ -59,6 +63,23 @@ export default function SharedPresentation({
     if (token && deck) recordShareView(token);
   }, [token, deck]);
 
+  // Per-slide dwell tracking for the presenter flow. Social projects render
+  // a scroll gallery with no slide index, so they get no tracker (a phase-3
+  // IntersectionObserver will cover them).
+  const dwellTrackerRef = useRef<ShareDwellTracker | null>(null);
+  useEffect(() => {
+    if (!token || !deck || deck.kind === "social") return;
+    const tracker = createShareDwellTracker(token);
+    dwellTrackerRef.current = tracker;
+    return () => {
+      tracker?.destroy();
+      dwellTrackerRef.current = null;
+    };
+  }, [token, deck]);
+  const handleSlideChange = useCallback((index: number) => {
+    dwellTrackerRef.current?.onSlideChange(index);
+  }, []);
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black flex items-center justify-center p-8">
@@ -102,6 +123,7 @@ export default function SharedPresentation({
       slides={slides}
       deckId={`__shared__/${token}`}
       aspectRatio={deck.aspectRatio}
+      onSlideChange={handleSlideChange}
     />
   );
 }

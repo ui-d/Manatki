@@ -92,8 +92,7 @@ const messages = {
     firstSlidesTitle: "पहली स्लाइड्स तैयार हो रही हैं",
     firstSlidesDescription:
       "जैसे ही हर स्लाइड तैयार होगी, डेक यहाँ भरना शुरू हो जाएगा।",
-    googleOAuthNotConfigured:
-      "इस डिप्लॉयमेंट के लिए Google OAuth कॉन्फ़िगर नहीं है।",
+    googleOAuthNotConfigured: "इस डिप्लॉयमेंट के लिए Google OAuth कॉन्फ़िगर नहीं है।",
     googlePickerNeedsKeys:
       "Google Picker को GOOGLE_PICKER_API_KEY और GOOGLE_PICKER_APP_ID चाहिए।",
     imageUploadFailed: "छवि अपलोड विफल",
@@ -158,8 +157,7 @@ const messages = {
     slideUnavailable: "स्लाइड उपलब्ध नहीं",
     couldNotLoadSlide: "स्लाइड लोड नहीं हो सकी।",
     openInApp: "ऐप में खोलें",
-    teamDescription:
-      "अपने सहकर्मियों के साथ प्रस्तुतियां साझा करने के लिए एक टीम सेट करें।",
+    teamDescription: "अपने सहकर्मियों के साथ प्रस्तुतियां साझा करने के लिए एक टीम सेट करें।",
   },
 
   designSystems: {
@@ -246,8 +244,7 @@ const messages = {
     },
     customSize: "कस्टम आकार",
     applyCustomSize: "लागू करें",
-    customSizeInvalid:
-      "{{min}} और {{max}} पिक्सेल के बीच चौड़ाई और ऊंचाई दर्ज करें",
+    customSizeInvalid: "{{min}} और {{max}} पिक्सेल के बीच चौड़ाई और ऊंचाई दर्ज करें",
     slideTools: "स्लाइड टूल्स",
     elementAnimations: "एलिमेंट एनिमेशन",
     tweaks: "ट्वीक्स",
@@ -302,7 +299,8 @@ const messages = {
   },
   share: {
     snapshotTab: "स्नैपशॉट लिंक",
-    snapshotDescription: "इस डेक की स्थिर प्रति का सार्वजनिक केवल-पठन लिंक बनाएं। बाद के संपादन शामिल नहीं होंगे।",
+    snapshotDescription:
+      "इस डेक की स्थिर प्रति का सार्वजनिक केवल-पठन लिंक बनाएं। बाद के संपादन शामिल नहीं होंगे।",
     activeLinks: "सक्रिय लिंक",
     revoke: "लिंक रद्द करें",
     noLinks: "अभी कोई स्नैपशॉट लिंक नहीं है।",
@@ -311,6 +309,10 @@ const messages = {
     viewSummary: "दृश्य: {{views}} · दर्शक: {{viewers}}",
     noViewsYet: "अभी तक कोई दृश्य नहीं",
     lastViewed: "अंतिम बार देखा गया: {{date}}",
+    slideStats: "स्लाइड सहभागिता",
+    slideStatRow: "स्लाइड {{slide}}: {{viewers}} दर्शक · औसत {{seconds}} से.",
+    noSlideStats: "अभी तक प्रति-स्लाइड डेटा नहीं है।",
+    statsFailed: "आँकड़े लोड नहीं हो सके",
     revokeFailed: "लिंक रद्द नहीं हो सका",
     createFailed: "साझा लिंक नहीं बन सका",
     title: "प्रस्तुति साझा करें",

@@ -1,6 +1,12 @@
 import { appBasePath } from "@agent-native/core/client/api-path";
 import { useT } from "@agent-native/core/client/i18n";
+import type {
+  ShareLinkListResponse,
+  ShareLinkStatsResponse,
+  ShareLinkSummary,
+} from "@shared/api";
 import {
+  IconChartBar,
   IconCheck,
   IconCopy,
   IconLink,
@@ -11,8 +17,6 @@ import { useCallback, useEffect, useState } from "react";
 
 import { CloudUpgrade } from "@/components/CloudUpgrade";
 import { useDbStatus } from "@/hooks/use-db-status";
-
-import type { ShareLinkListResponse, ShareLinkSummary } from "@shared/api";
 
 interface SnapshotLinkTabProps {
   deckId: string;
@@ -50,6 +54,9 @@ export default function SnapshotLinkTab({ deckId }: SnapshotLinkTabProps) {
   const [revoking, setRevoking] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [statsToken, setStatsToken] = useState<string | null>(null);
+  const [stats, setStats] = useState<ShareLinkStatsResponse | null>(null);
+  const [statsError, setStatsError] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -103,6 +110,31 @@ export default function SnapshotLinkTab({ deckId }: SnapshotLinkTabProps) {
     await navigator.clipboard.writeText(shareUrlFor(token)).catch(() => {});
     setCopiedToken(token);
     setTimeout(() => setCopiedToken((c) => (c === token ? null : c)), 2000);
+  };
+
+  const handleToggleStats = async (token: string) => {
+    if (statsToken === token) {
+      setStatsToken(null);
+      setStats(null);
+      return;
+    }
+    setStatsToken(token);
+    setStats(null);
+    setStatsError("");
+    try {
+      const res = await fetch(
+        `${appBasePath()}/api/share/${encodeURIComponent(token)}/stats`,
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || t("share.statsFailed"));
+      }
+      setStats((await res.json()) as ShareLinkStatsResponse);
+    } catch (err) {
+      setStatsError(
+        err instanceof Error ? err.message : t("share.statsFailed"),
+      );
+    }
   };
 
   const handleRevoke = async (token: string) => {
@@ -172,41 +204,86 @@ export default function SnapshotLinkTab({ deckId }: SnapshotLinkTabProps) {
             {links.map((link) => (
               <li
                 key={link.token}
-                className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-2 py-1.5"
+                className="rounded-md border border-border bg-muted/30 px-2 py-1.5"
               >
-                <div className="min-w-0 flex-1">
-                  <span className="block truncate font-mono text-[11px] text-foreground/80">
-                    {shareUrlFor(link.token)}
-                  </span>
-                  <span className="block truncate text-[10px] text-muted-foreground">
-                    {viewStatsLine(link, t)}
-                  </span>
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate font-mono text-[11px] text-foreground/80">
+                      {shareUrlFor(link.token)}
+                    </span>
+                    <span className="block truncate text-[10px] text-muted-foreground">
+                      {viewStatsLine(link, t)}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleToggleStats(link.token)}
+                    aria-label={t("share.slideStats")}
+                    aria-expanded={statsToken === link.token}
+                    className={`rounded p-1 hover:bg-accent hover:text-foreground ${
+                      statsToken === link.token
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    <IconChartBar className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleCopy(link.token)}
+                    aria-label={t("share.copyLink")}
+                    className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    {copiedToken === link.token ? (
+                      <IconCheck className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <IconCopy className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleRevoke(link.token)}
+                    disabled={revoking === link.token}
+                    aria-label={t("share.revoke")}
+                    className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-destructive disabled:opacity-50"
+                  >
+                    {revoking === link.token ? (
+                      <IconLoader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <IconLinkOff className="h-3.5 w-3.5" />
+                    )}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void handleCopy(link.token)}
-                  aria-label={t("share.copyLink")}
-                  className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                >
-                  {copiedToken === link.token ? (
-                    <IconCheck className="h-3.5 w-3.5 text-green-500" />
-                  ) : (
-                    <IconCopy className="h-3.5 w-3.5" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleRevoke(link.token)}
-                  disabled={revoking === link.token}
-                  aria-label={t("share.revoke")}
-                  className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-destructive disabled:opacity-50"
-                >
-                  {revoking === link.token ? (
-                    <IconLoader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <IconLinkOff className="h-3.5 w-3.5" />
-                  )}
-                </button>
+                {statsToken === link.token && (
+                  <div className="mt-1.5 border-t border-border/60 pt-1.5">
+                    {statsError ? (
+                      <p className="text-[10px] text-destructive">
+                        {statsError}
+                      </p>
+                    ) : stats === null ? (
+                      <div className="h-4 animate-pulse rounded bg-muted/50" />
+                    ) : stats.slides.length === 0 ? (
+                      <p className="text-[10px] text-muted-foreground/80">
+                        {t("share.noSlideStats")}
+                      </p>
+                    ) : (
+                      <ul className="space-y-0.5">
+                        {stats.slides.map((slide) => (
+                          <li
+                            key={slide.slideIndex}
+                            className="text-[10px] text-muted-foreground"
+                          >
+                            {t("share.slideStatRow", {
+                              slide: slide.slideIndex + 1,
+                              viewers: slide.viewers,
+                              seconds: Math.round(slide.avgDwellMs / 1000),
+                            })}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

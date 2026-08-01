@@ -311,7 +311,8 @@ const messages = {
   },
   share: {
     snapshotTab: "Enlace de instantánea",
-    snapshotDescription: "Crea un enlace público de solo lectura a una copia congelada de esta presentación. Las ediciones posteriores no se incluyen.",
+    snapshotDescription:
+      "Crea un enlace público de solo lectura a una copia congelada de esta presentación. Las ediciones posteriores no se incluyen.",
     activeLinks: "Enlaces activos",
     revoke: "Revocar enlace",
     noLinks: "Aún no hay enlaces de instantánea.",
@@ -320,6 +321,11 @@ const messages = {
     viewSummary: "Vistas: {{views}} · Visitantes: {{viewers}}",
     noViewsYet: "Aún sin vistas",
     lastViewed: "Última visualización: {{date}}",
+    slideStats: "Interacción por diapositiva",
+    slideStatRow:
+      "Diapositiva {{slide}}: {{viewers}} espectadores · media {{seconds}} s",
+    noSlideStats: "Aún no hay datos por diapositiva.",
+    statsFailed: "No se pudieron cargar las estadísticas",
     revokeFailed: "No se pudo revocar el enlace",
     createFailed: "No se pudo crear el enlace para compartir",
     title: "Compartir presentación",

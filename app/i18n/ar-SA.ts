@@ -90,10 +90,8 @@ const messages = {
     pasteUrl: "لصق URL",
     removeLink: "إزالة الرابط",
     firstSlidesTitle: "جارٍ تجهيز الشرائح الأولى",
-    firstSlidesDescription:
-      "سيبدأ العرض بالامتلاء هنا فور وصول كل شريحة.",
-    googleOAuthNotConfigured:
-      "لم يتم إعداد Google OAuth لهذا النشر.",
+    firstSlidesDescription: "سيبدأ العرض بالامتلاء هنا فور وصول كل شريحة.",
+    googleOAuthNotConfigured: "لم يتم إعداد Google OAuth لهذا النشر.",
     googlePickerNeedsKeys:
       "يحتاج Google Picker إلى GOOGLE_PICKER_API_KEY وGOOGLE_PICKER_APP_ID.",
     imageUploadFailed: "فشل رفع الصورة",
@@ -146,8 +144,7 @@ const messages = {
     selected: "محدد",
     chooseDesignSystem: "اختر نظام تصميم",
     presentationNotFound: "لم يتم العثور على العرض",
-    sharedPresentationExpired:
-      "هذا العرض المشترك غير موجود أو انتهت صلاحيته.",
+    sharedPresentationExpired: "هذا العرض المشترك غير موجود أو انتهت صلاحيته.",
     routeNotFoundTitle: "غير موجود - Manatki",
     routeEditorTitle: "المحرر — Manatki",
     routeDesignSystemsTitle: "أنظمة التصميم - Manatki",
@@ -158,8 +155,7 @@ const messages = {
     slideUnavailable: "الشريحة غير متاحة",
     couldNotLoadSlide: "تعذر تحميل الشريحة.",
     openInApp: "فتح في التطبيق",
-    teamDescription:
-      "أنشئ فريقًا لمشاركة العروض التقديمية مع زملائك.",
+    teamDescription: "أنشئ فريقًا لمشاركة العروض التقديمية مع زملائك.",
   },
 
   designSystems: {
@@ -306,7 +302,8 @@ const messages = {
   },
   share: {
     snapshotTab: "رابط اللقطة",
-    snapshotDescription: "أنشئ رابطًا عامًا للقراءة فقط لنسخة مجمّدة من هذا العرض. لن تُدرج التعديلات اللاحقة.",
+    snapshotDescription:
+      "أنشئ رابطًا عامًا للقراءة فقط لنسخة مجمّدة من هذا العرض. لن تُدرج التعديلات اللاحقة.",
     activeLinks: "الروابط النشطة",
     revoke: "إلغاء الرابط",
     noLinks: "لا توجد روابط لقطات بعد.",
@@ -315,6 +312,11 @@ const messages = {
     viewSummary: "المشاهدات: {{views}} · المشاهدون: {{viewers}}",
     noViewsYet: "لا توجد مشاهدات بعد",
     lastViewed: "آخر مشاهدة: {{date}}",
+    slideStats: "تفاعل الشرائح",
+    slideStatRow:
+      "الشريحة {{slide}}: {{viewers}} مشاهدون · متوسط {{seconds}} ث",
+    noSlideStats: "لا توجد بيانات لكل شريحة بعد.",
+    statsFailed: "تعذّر تحميل الإحصاءات",
     revokeFailed: "تعذّر إلغاء الرابط",
     createFailed: "تعذر إنشاء رابط المشاركة",
     title: "مشاركة العرض التقديمي",
@@ -475,13 +477,11 @@ const messages = {
     clearAll: "مسح الكل",
     elements: "العناصر",
     autoFill: "تعبئة تلقائية",
-    noAnimatableElements:
-      "لم يتم اكتشاف عناصر قابلة للتحريك في هذه الشريحة.",
+    noAnimatableElements: "لم يتم اكتشاف عناصر قابلة للتحريك في هذه الشريحة.",
   },
   generateSlides: {
     title: "إنشاء شرائح بالذكاء الاصطناعي",
-    description:
-      "صف موضوع عرضك التقديمي وسينشئ الذكاء الاصطناعي الشرائح لك.",
+    description: "صف موضوع عرضك التقديمي وسينشئ الذكاء الاصطناعي الشرائح لك.",
     topic: "الموضوع",
     topicPlaceholder:
       "مثال: مقدمة إلى React Hooks، تقرير مبيعات الربع الرابع، خارطة طريق المنتج 2025...",
@@ -497,8 +497,7 @@ const messages = {
     generateImages: "إنشاء صور",
     generateImagesDescription:
       "سينشئ الذكاء الاصطناعي صورًا للشرائح المرئية باستخدام Gemini",
-    referenceImages:
-      "صور مرجعية (اختياري، لاتساق العلامة التجارية)",
+    referenceImages: "صور مرجعية (اختياري، لاتساق العلامة التجارية)",
     referenceImagesDescription:
       "ارفع صورًا لمطابقة نمطها المرئي في الصور المُنشأة",
     generating: "جارٍ إنشاء الشرائح...",
@@ -522,8 +521,7 @@ const messages = {
     restoreFailedDescription: "تعذر استعادة هذا الإصدار من العرض.",
     backToSavedVersions: "العودة إلى الإصدارات المحفوظة",
     savedVersions: "الإصدارات المحفوظة",
-    description:
-      "تصفح إصدارات العرض المحفوظة واستعد لقطة سابقة.",
+    description: "تصفح إصدارات العرض المحفوظة واستعد لقطة سابقة.",
     untitled: "بدون عنوان",
     snapshotUnavailable: "اللقطة غير متاحة",
     slideNumber: "الشريحة {{number}}",

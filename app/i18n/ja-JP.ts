@@ -306,7 +306,8 @@ const messages = {
   },
   share: {
     snapshotTab: "スナップショットリンク",
-    snapshotDescription: "このデッキの固定コピーへの公開閲覧専用リンクを作成します。以降の編集は反映されません。",
+    snapshotDescription:
+      "このデッキの固定コピーへの公開閲覧専用リンクを作成します。以降の編集は反映されません。",
     activeLinks: "有効なリンク",
     revoke: "リンクを無効化",
     noLinks: "スナップショットリンクはまだありません。",
@@ -315,6 +316,10 @@ const messages = {
     viewSummary: "表示回数: {{views}} · 閲覧者: {{viewers}}",
     noViewsYet: "まだ表示されていません",
     lastViewed: "最終閲覧: {{date}}",
+    slideStats: "スライド別エンゲージメント",
+    slideStatRow: "スライド{{slide}}: 閲覧者{{viewers}}人 · 平均{{seconds}}秒",
+    noSlideStats: "スライド別のデータはまだありません。",
+    statsFailed: "統計を読み込めませんでした",
     revokeFailed: "リンクの無効化に失敗しました",
     createFailed: "共有リンクを作成できませんでした",
     title: "プレゼンテーションを共有",
@@ -472,26 +477,32 @@ const messages = {
     title: "アニメーション",
     close: "アニメーションパネルを閉じる",
     emptyTitle: "アニメーションはまだありません。",
-    emptyDescription: "下から要素を追加すると、クリックで表示されるようになります。",
+    emptyDescription:
+      "下から要素を追加すると、クリックで表示されるようになります。",
     clearAll: "すべて消去",
     elements: "要素",
     autoFill: "自動追加",
-    noAnimatableElements: "このスライドにはアニメーション可能な要素が見つかりませんでした。",
+    noAnimatableElements:
+      "このスライドにはアニメーション可能な要素が見つかりませんでした。",
   },
   generateSlides: {
     title: "AI でスライドを生成",
-    description: "プレゼンテーションのテーマを説明すると、AI がスライドを生成します。",
+    description:
+      "プレゼンテーションのテーマを説明すると、AI がスライドを生成します。",
     topic: "テーマ",
-    topicPlaceholder: "例: React Hooks 入門、Q4 売上レポート、2025 年製品ロードマップ...",
+    topicPlaceholder:
+      "例: React Hooks 入門、Q4 売上レポート、2025 年製品ロードマップ...",
     slides: "スライド",
     slideCount_one: "{{count}} 枚のスライド",
     slideCount_other: "{{count}} 枚のスライド",
     styleOptional: "スタイル（任意）",
     stylePlaceholder: "例: ミニマル、コーポレート...",
     generateImages: "画像を生成",
-    generateImagesDescription: "AI が Gemini を使用してビジュアルスライド用の画像を生成します",
+    generateImagesDescription:
+      "AI が Gemini を使用してビジュアルスライド用の画像を生成します",
     referenceImages: "参考画像（任意、ブランドの一貫性のため）",
-    referenceImagesDescription: "生成される画像のビジュアルスタイルを合わせるために画像をアップロードします",
+    referenceImagesDescription:
+      "生成される画像のビジュアルスタイルを合わせるために画像をアップロードします",
     generating: "スライドを生成中...",
     generate: "スライドを生成",
   },
@@ -504,19 +515,22 @@ const messages = {
     slideCount_one: "{{count}} 枚のスライド",
     slideCount_other: "{{count}} 枚のスライド",
     versionRestored: "バージョンを復元しました",
-    versionRestoredDescription: "デッキを選択したスナップショットに戻しました。",
+    versionRestoredDescription:
+      "デッキを選択したスナップショットに戻しました。",
     restoreFailed: "復元に失敗しました",
     restoreFailedDescription: "このデッキバージョンを復元できませんでした。",
     backToSavedVersions: "保存済みバージョンに戻る",
     savedVersions: "保存済みバージョン",
-    description: "保存済みのデッキバージョンを閲覧し、以前のスナップショットを復元します。",
+    description:
+      "保存済みのデッキバージョンを閲覧し、以前のスナップショットを復元します。",
     untitled: "無題",
     snapshotUnavailable: "スナップショットを利用できません",
     slideNumber: "スライド {{number}}",
     noSlidesInSnapshot: "このスナップショットにはスライドがありません。",
     restoreThisVersion: "このバージョンを復元",
     noSavedVersions: "保存済みバージョンはまだありません",
-    noSavedVersionsDescription: "今後デッキを編集する前に、バージョンが自動的に保存されます。",
+    noSavedVersionsDescription:
+      "今後デッキを編集する前に、バージョンが自動的に保存されます。",
   },
   editorSidebar: {
     selectSlide: "スライド {{number}} を選択",

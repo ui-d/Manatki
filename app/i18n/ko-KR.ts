@@ -159,8 +159,7 @@ const messages = {
     slideUnavailable: "슬라이드를 사용할 수 없음",
     couldNotLoadSlide: "슬라이드를 불러올 수 없습니다.",
     openInApp: "앱에서 열기",
-    teamDescription:
-      "동료와 프레젠테이션을 공유할 수 있도록 팀을 설정하세요.",
+    teamDescription: "동료와 프레젠테이션을 공유할 수 있도록 팀을 설정하세요.",
   },
 
   designSystems: {
@@ -247,8 +246,7 @@ const messages = {
     },
     customSize: "사용자 지정 크기",
     applyCustomSize: "적용",
-    customSizeInvalid:
-      "{{min}}~{{max}} 픽셀 사이의 너비와 높이를 입력하세요",
+    customSizeInvalid: "{{min}}~{{max}} 픽셀 사이의 너비와 높이를 입력하세요",
     slideTools: "슬라이드 도구",
     elementAnimations: "요소 애니메이션",
     tweaks: "조정",
@@ -303,7 +301,8 @@ const messages = {
   },
   share: {
     snapshotTab: "스냅샷 링크",
-    snapshotDescription: "이 덱의 고정된 사본에 대한 공개 읽기 전용 링크를 만듭니다. 이후 편집 내용은 포함되지 않습니다.",
+    snapshotDescription:
+      "이 덱의 고정된 사본에 대한 공개 읽기 전용 링크를 만듭니다. 이후 편집 내용은 포함되지 않습니다.",
     activeLinks: "활성 링크",
     revoke: "링크 해지",
     noLinks: "아직 스냅샷 링크가 없습니다.",
@@ -312,6 +311,11 @@ const messages = {
     viewSummary: "조회수: {{views}} · 조회자: {{viewers}}",
     noViewsYet: "아직 조회가 없습니다",
     lastViewed: "마지막 조회: {{date}}",
+    slideStats: "슬라이드별 참여도",
+    slideStatRow:
+      "슬라이드 {{slide}}: 조회자 {{viewers}}명 · 평균 {{seconds}}초",
+    noSlideStats: "아직 슬라이드별 데이터가 없습니다.",
+    statsFailed: "통계를 불러오지 못했습니다",
     revokeFailed: "링크를 해지하지 못했습니다",
     createFailed: "공유 링크를 만들 수 없습니다",
     title: "프레젠테이션 공유",
@@ -638,8 +642,7 @@ const messages = {
     newDeckCardTitle: "새 프레젠테이션",
     newSocialCardTitle: "새 소셜 에셋",
     newDeckPromptTitleSocial: "새 소셜 에셋",
-    newDeckPlaceholderSocial:
-      "필요한 게시물, 스토리 또는 배너를 설명하세요...",
+    newDeckPlaceholderSocial: "필요한 게시물, 스토리 또는 배너를 설명하세요...",
     showAllKinds: "모든 프로젝트 표시",
     showDecksOnly: "프레젠테이션만 표시",
     showSocialOnly: "소셜 에셋만 표시",
