@@ -210,22 +210,32 @@ button[title="Open agent sidebar"] {
   }
 }
 
-/* Landing page ("technical broadsheet") — the public marketing surface at `/`
-   and `/welcome`. It deliberately opts out of the app theme tokens: the
-   workspace is neutral grey by design, while the landing carries the brand's
-   ink-and-violet palette (the same pink→purple ramp as the product logo).
-   Scoped to `.landing` so nothing leaks into the app. */
+/* Landing pages ("cobalt stage") — the public marketing surface at `/`,
+   `/presentations`, `/social-assets`, and `/self-host`. It deliberately opts
+   out of the app theme tokens: the workspace is neutral grey by design, while
+   the marketing pages sit on a deep cobalt ground with warm paper type — a
+   screenprint palette (gold ramp + coral CTAs) drawn from the product's own
+   world of stages and campaign posters. The logo mark keeps its pink→violet
+   gradient; everything else leaves the purple family on purpose. Scoped to
+   `.landing` so nothing leaks into the app.
+
+   Roles: --landing-accent (coral) is for CTA fills, focus rings, and large
+   display accents; --landing-gold carries small accent text (eyebrows, mono
+   markers) because coral only reaches ~3.7:1 on the cobalt ground;
+   --landing-on-accent is the text color on coral fills. */
 .landing {
-  --landing-ink: #0e0e11;
-  --landing-raised: #16161c;
-  --landing-bone: #f1f0f5;
-  --landing-accent: #a78bfa;
-  --landing-accent-strong: #8b5cf6;
-  --landing-pink: #f472b6;
-  /* Contrast on --landing-ink: bone 17.5:1, accent 7.6:1, muted 6.5:1,
-     pink 7.4:1 (accents and large text only, never small body copy). */
-  --landing-muted: #9b97a6;
-  --landing-line: #2a2a33;
+  --landing-ink: #0d2ba4;
+  --landing-raised: #0a2187;
+  --landing-bone: #f5f2e8;
+  --landing-accent: #ff5a2b;
+  --landing-accent-strong: #e84a1d;
+  --landing-gold: #ffc145;
+  --landing-on-accent: #101433;
+  /* Contrast on --landing-ink: bone 10.5:1, gold 7.2:1, muted 5.5:1; coral
+     3.7:1 (large text and fills only, never small copy). On --landing-accent:
+     on-accent 5.4:1. */
+  --landing-muted: #aeb9e6;
+  --landing-line: #3a52c8;
 
   background-color: var(--landing-ink);
   color: var(--landing-bone);
@@ -237,8 +247,8 @@ button[title="Open agent sidebar"] {
 }
 
 .landing ::selection {
-  background-color: var(--landing-accent);
-  color: var(--landing-ink);
+  background-color: var(--landing-gold);
+  color: var(--landing-on-accent);
 }
 
 .landing :focus-visible {

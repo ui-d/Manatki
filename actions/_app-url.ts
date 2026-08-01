@@ -1,6 +1,6 @@
 import { withConfiguredAppBasePath } from "@agent-native/core/server";
 
-const FALLBACK_SLIDES_APP_URL = "https://slides.agent-native.com";
+const FALLBACK_SLIDES_APP_URL = "https://manatki.xyz";
 
 function normalizeUrl(raw: string): string {
   const trimmed = raw.trim().replace(/\/+$/, "");

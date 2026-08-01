@@ -1,21 +1,15 @@
+import { marketingHeaders, marketingMeta } from "@/lib/landing-subpages";
 import Landing from "@/pages/Landing";
 
-const SEO_TITLE =
-  "Manatki - Open Source AI studio for presentations and marketing assets";
-const SEO_DESCRIPTION =
-  "Open Source AI studio for generating, editing, and exporting presentations, social graphics, and marketing assets — on brand, in every format.";
+export const headers = marketingHeaders;
 
 export function meta() {
-  return [
-    { title: SEO_TITLE },
-    { name: "description", content: SEO_DESCRIPTION },
-    { property: "og:title", content: SEO_TITLE },
-    { property: "og:description", content: SEO_DESCRIPTION },
-    { property: "og:type", content: "website" },
-    { name: "twitter:card", content: "summary" },
-    { name: "twitter:title", content: SEO_TITLE },
-    { name: "twitter:description", content: SEO_DESCRIPTION },
-  ];
+  return marketingMeta({
+    title: "Manatki — Free, open-source AI studio for decks and campaigns",
+    description:
+      "A free, open-source studio where an AI agent builds presentations and marketing campaigns with you — on your brand, with your own key. Google Slides, editable PPTX, and per-asset PNG export.",
+    path: "/",
+  });
 }
 
 /**

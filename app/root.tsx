@@ -63,7 +63,12 @@ const BARE_PREFIXES = ["/share/", "/p/"];
  * be wrapped in `ClientOnly` and ship a spinner to crawlers, and its mounted
  * workspace hooks would fire a burst of 401s for every signed-out visitor.
  */
-const STANDALONE_ROUTES = new Set(["/"]);
+const STANDALONE_ROUTES = new Set([
+  "/",
+  "/presentations",
+  "/social-assets",
+  "/self-host",
+]);
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
@@ -159,7 +164,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
         <link rel="icon" type="image/svg+xml" href={appPath("/favicon.svg")} />
         <link rel="manifest" href={appPath("/manifest.json")} />
-        <meta name="theme-color" content="#EC4899" />
+        <meta name="theme-color" content="#0D2BA4" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta
           name="apple-mobile-web-app-status-bar-style"

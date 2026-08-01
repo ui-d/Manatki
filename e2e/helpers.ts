@@ -27,6 +27,7 @@ export function runAction(name: string, args: unknown): string {
 export interface SeedSlide {
   id: string;
   content: string;
+  layout?: string;
   notes?: string;
 }
 
@@ -36,6 +37,7 @@ export interface SeedDeckOptions {
   kind?: "deck" | "social";
   sizePreset?: string;
   aspectRatio?: string;
+  designSystemId?: string;
 }
 
 /** Unique per-run title so stale decks from crashed runs can't be matched. */
