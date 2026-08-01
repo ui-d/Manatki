@@ -4,8 +4,8 @@
   "description": "AI marketing asset and presentation studio",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#111111",
-  "theme_color": "#EC4899",
+  "background_color": "#0D2BA4",
+  "theme_color": "#0D2BA4",
   "icons": [
     {
       "src": "icon-192.svg",

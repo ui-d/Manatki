@@ -170,7 +170,7 @@ function DeckCard({
                   })}
             </span>
             {isSocial && (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-[#EC4899]/40 px-1.5 py-0.5 text-[10px] text-[#EC4899]">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-[#FF5A2B]/40 px-1.5 py-0.5 text-[10px] text-[#FF5A2B]">
                 <IconLayoutGrid className="h-3 w-3 shrink-0" />
                 {t("home.socialBadge")}
               </span>
