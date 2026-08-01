@@ -79,6 +79,26 @@ When generating slides, replace default values with design system tokens:
 - `#000000` background -> `colors.background`
 - `rgba(255,255,255,0.55)` -> `colors.textMuted`
 
+## Brand Linting
+
+`lint-deck-brand --deckId=<id>` checks every slide's styles against the
+deck's linked design system (override with `designSystemId`). Deterministic
+string analysis, no LLM, nothing is modified. It flags:
+
+- `off-palette-color`: saturated colors not close to any palette token
+  (grays/white/black are layout neutrals and always pass; near-palette
+  values within a small perceptual tolerance pass too).
+- `off-brand-font`: font-family declarations whose first family is neither
+  the heading nor body font (generic fallbacks like `sans-serif` pass).
+
+Each violation carries `slideId`, `slideIndex`, the offending literal, an
+occurrence count, and a nearest-token `suggestion`. Run it after generating
+or editing slides on a brand-linked deck; fix findings with targeted
+`update-slide` edits (usually replacing the literal with the suggested token
+value), not by regenerating slides. A `linted: false` result explains why
+(no linked system, inaccessible system, or unparseable tokens) — surface
+that to the user instead of guessing.
+
 ## Tweaks
 
 The Tweaks panel provides live CSS variable overrides:
