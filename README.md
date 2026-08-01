@@ -1,38 +1,60 @@
+<div align="center">
+
+<img src="public/manatki-icon.svg" alt="Manatki" width="72" />
+
 # Manatki
 
-**Live app: [slideshow-app-uids-projects-f4e05740.vercel.app](https://slideshow-app-uids-projects-f4e05740.vercel.app)**
+**Your next deck is one prompt away.**
 
 An open-source, agent-native studio for presentations and marketing assets.
-Generate decks or social campaigns from a prompt with your own OpenAI API key,
-edit every slide or asset visually or from chat, drop in a folder of images as
-a ready-to-present deck, and present with a distinctive two-pane presenter
-stage.
+Talk to it — get a real, editable deck or a full multi-format campaign.
 
-Everything you can do in the editor, the agent can do from chat too: "add a
-slide about pricing", "make a campaign set for the spring launch", "attach
-these screenshots to slide 3", "switch the preview style to card".
+[**manatki.xyz**](https://manatki.xyz) · [Presentations](https://manatki.xyz/presentations) · [Social assets](https://manatki.xyz/social-assets) · [Self-host](https://manatki.xyz/self-host)
 
-## Features
+[![MIT License](https://img.shields.io/badge/license-MIT-0D2BA4)](./LICENSE)
+[![Free forever](https://img.shields.io/badge/price-free%2C%20no%20card%2C%20ever-FF5A2B)](https://manatki.xyz)
+[![Bring your own key](https://img.shields.io/badge/AI-bring%20your%20own%20key-FFC145)](https://manatki.xyz/self-host)
 
-- **Agentic editing** — a chat agent with full access to the project: create,
-  edit, reorder, theme, and illustrate slides and assets from natural language.
-- **Social asset projects** — mixed-size marketing assets (Instagram posts,
-  stories, banners) with per-asset canvases and PNG/ZIP export.
-- **Bring your own key** — add your OpenAI API key in Settings; it is stored
-  encrypted per user and used for slide and image generation. The hosted
-  version needs no server-side AI keys.
-- **Two-pane presenter stage** — current slide sharp on the left, a treated
-  preview of the next slide on the right, with five preview styles
-  (`combo`, `soft`, `dim`, `fade`, `card`) cycled with `V`.
-- **Screenshot grids** — attach supporting screenshots to any slide; they
-  replace the preview pane as a sharp grid, with click-to-magnify and
-  arrow-key walkthrough.
-- **Image decks** — drag a folder of images in and it becomes a deck
-  (a subfolder named after a slide holds that slide's screenshots).
-- Presenter timer (`T`), fullscreen (`F`), auto-appended closing slide,
-  keyboard-first navigation.
-- Everything from the slides template: visual editor, imports (PDF/PPTX/DOCX/
-  URL), exports (PPTX/HTML), design systems, versions, comments, share links.
+<img src="public/landing/og.png" alt="The Manatki editor with the agent chat rail beside a slide" width="800" />
+
+</div>
+
+---
+
+Everything the editor can do, chat can do too:
+
+```
+> make a 12-slide deck from this memo, on our brand
+> add a slide about pricing after the roadmap
+> make a campaign set for the spring launch
+> attach these screenshots to slide 3
+> export this deck to Google Slides
+```
+
+## Why Manatki
+
+- **Genuinely agent-native** — the same ~110 actions back the UI and the chat
+  agent. Create, edit, reorder, theme, illustrate, import, export, share:
+  nothing is editor-only.
+- **Real output, not screenshots** — export native editable PPTX (text and
+  shapes stay real, speaker notes included), Google Slides straight into your
+  Drive, PDF, HTML, and per-asset PNG.
+- **Free, and honestly free** — there is no billing code in this repository.
+  You bring your own OpenAI key; it's stored encrypted per user, and
+  generation runs at your provider's prices.
+
+## What's inside
+
+| | |
+| --- | --- |
+| <img src="public/landing/brand-check.png" alt="Brand check popover with Fix with AI" width="420" /> | **On brand, provably.** Point Manatki at a website, brand doc, or code file and it becomes a reusable design system. A deterministic brand linter flags off-palette colors and off-brand fonts per slide — and "Fix with AI" hands the findings to the agent for targeted repairs. |
+| <img src="public/landing/presenter-stage.png" alt="Two-pane presenter stage" width="420" /> | **A presenter stage built for talking.** Current slide sharp on the left, the next one treated on the right — five preview styles cycled live with `V`. Attach screenshots to a slide and they take over the pane as a browsable grid. |
+| <img src="public/landing/social-board.png" alt="Social project with mixed canvas sizes" width="420" /> | **One campaign, every format.** Social projects give every asset its own pixel canvas — 16 presets from Instagram square to story to leaderboard, composed per format with story safe areas. Export PNG per asset or the set as a ZIP. |
+| <img src="public/landing/share-analytics.png" alt="Share link analytics with per-slide dwell" width="420" /> | **Share it, then see what landed.** Share links track views, unique viewers, and per-slide dwell time — anonymous by design (random client-minted session ids, never identity). |
+
+Plus: imports from PDF, PPTX, DOCX, Google Docs, code files, or a URL ·
+image-folder-to-deck in one drag · comments with canvas pins · live presence ·
+version history with restore · 12 UI locales.
 
 ## Presenter controls
 
@@ -46,32 +68,29 @@ these screenshots to slide 3", "switch the preview style to card".
 | `T` | Presenter timer |
 | Click screenshot | Magnify; `←`/`→` walk the set; `Esc` close |
 
-## Develop locally
+## Run it locally
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Runs at http://localhost:8080 with a local SQLite database and auth disabled
-(`AUTH_DISABLED=true` in `.env`). Add keys in `.env` or through the in-app
+That's the whole setup: it serves at http://localhost:8080 on SQLite with
+auth switched off (`AUTH_DISABLED=true` in `.env`), so you can be editing a
+deck a minute after cloning. Add keys in `.env` or through the in-app
 Settings panel — see `.env.example`.
 
-## Deploy (Vercel)
+## Deploy
 
-The app deploys to Vercel with the Nitro `vercel` preset:
+The default target is Vercel (Nitro `vercel` preset):
 
-- **Database:** Neon Postgres (`DATABASE_URL`)
-- **File storage:** Vercel Blob (`BLOB_READ_WRITE_TOKEN`)
-- **Auth:** Better Auth with GitHub OAuth (`GITHUB_CLIENT_ID`,
-  `GITHUB_CLIENT_SECRET`, `BETTER_AUTH_SECRET`)
-- **AI:** none required server-side — users bring their own OpenAI key.
-  Optionally set `GEMINI_API_KEY` as a shared fallback for image generation.
-
-Self-hosters can swap Vercel Blob for S3/R2 by registering a different upload
-provider (`server/plugins/file-upload.ts`), and use any SQL database Drizzle
-supports.
+| | |
+| --- | --- |
+| Database | Neon Postgres (`DATABASE_URL`), or any SQL that Drizzle speaks |
+| File storage | Vercel Blob (`BLOB_READ_WRITE_TOKEN`), swappable for S3/R2 via `server/plugins/file-upload.ts` |
+| Auth | Better Auth with GitHub OAuth (`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `BETTER_AUTH_SECRET`) |
+| AI | None server-side — users bring their own key. Optional `GEMINI_API_KEY` as a shared image-generation fallback |
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](./LICENSE) — run it, fork it, ship it.
