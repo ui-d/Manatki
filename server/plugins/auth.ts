@@ -1,6 +1,6 @@
 import { createAuthPlugin } from "@agent-native/core/server";
 
-import { buildLoginHtml } from "./login-page";
+import { buildLoginHtml } from "../lib/login-page";
 
 export default createAuthPlugin({
   // Full-document replacement (see login-page.ts): the built-in page has no
