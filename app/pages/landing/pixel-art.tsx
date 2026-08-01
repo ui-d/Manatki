@@ -19,27 +19,77 @@ const PIXEL_COLORS: Record<string, string> = {
 
 type Frame = readonly string[];
 
-/** A gentle round-backed manatee, swimming right. Two frames flip the tail. */
-const MANATEE_A: Frame = [
-  "....GGGGGG....",
-  "..GGGGGGGGGG..",
-  ".GGGGGGGGGGGG.",
-  "GG.GGGGGGGGDG.",
-  "GGGGGGGGGGGGGG",
-  ".G.GGGGGGGGGG.",
-  "....GGGGGGGG..",
-  "......gg......",
+/**
+ * "Manatki" is Polish for one's belongings — goods and chattels. The
+ * sprites are exactly that: a knotted bundle, a suitcase, a tied parcel.
+ * Two frames give the bundle's knot a little wobble.
+ */
+const BUNDLE_A: Frame = [
+  ".....GG.....",
+  "....G..G....",
+  ".....GG.....",
+  "....gGGg....",
+  "..GGGGGGGG..",
+  ".GGGGGGGGGG.",
+  ".GGGGGGGGGG.",
+  ".gGGGGGGGGg.",
+  "..gGGGGGGg..",
+  "....gggg....",
 ];
 
-const MANATEE_B: Frame = [
-  "....GGGGGG....",
-  "..GGGGGGGGGG..",
-  ".G.GGGGGGGGGG.",
-  "GG.GGGGGGGGDG.",
-  "GGGGGGGGGGGGGG",
-  "....GGGGGGGGG.",
-  "......GGGGG...",
-  ".......gg.....",
+const BUNDLE_B: Frame = [
+  "....GG......",
+  "...G..G.....",
+  "....GG......",
+  "....gGGg....",
+  "..GGGGGGGG..",
+  ".GGGGGGGGGG.",
+  ".GGGGGGGGGG.",
+  ".gGGGGGGGGg.",
+  "..gGGGGGGg..",
+  "....gggg....",
+];
+
+/** A coral suitcase; the gold clasps glint between frames. */
+const SUITCASE_A: Frame = [
+  "....CCCC....",
+  "...C....C...",
+  ".CCCCCCCCCC.",
+  ".CGCCCCCCGC.",
+  ".CCCCCCCCCC.",
+  ".CCCCCCCCCC.",
+  ".CCCCCCCCCC.",
+];
+
+const SUITCASE_B: Frame = [
+  "....CCCC....",
+  "...C....C...",
+  ".CCCCCCCCCC.",
+  ".CgCCCCCCgC.",
+  ".CCCCCCCCCC.",
+  ".CCCCCCCCCC.",
+  ".CCCCCCCCCC.",
+];
+
+/** A paper parcel tied with coral string; a corner pixel glints. */
+const PARCEL_A: Frame = [
+  "....CC....",
+  "...C..C...",
+  "PPPPCCPPPP",
+  "PPPPCCPPPP",
+  "CCCCCCCCCC",
+  "PPPPCCPPPP",
+  "PPPPCCPPPG",
+];
+
+const PARCEL_B: Frame = [
+  "....CC....",
+  "...C..C...",
+  "PPPPCCPPPP",
+  "PPPPCCPPPP",
+  "CCCCCCCCCC",
+  "GPPPCCPPPP",
+  "PPPPCCPPPP",
 ];
 
 /** Four-point sparkle; frame B collapses to a dot for the twinkle. */
@@ -124,7 +174,7 @@ export function PixelSprite({
   );
 }
 
-export function PixelManatee({
+export function PixelBundle({
   scale = 3,
   className,
 }: {
@@ -133,9 +183,42 @@ export function PixelManatee({
 }) {
   return (
     <PixelSprite
-      frames={[MANATEE_A, MANATEE_B]}
+      frames={[BUNDLE_A, BUNDLE_B]}
       scale={scale}
       motion="bob"
+      className={className}
+    />
+  );
+}
+
+export function PixelSuitcase({
+  scale = 3,
+  className,
+}: {
+  scale?: number;
+  className?: string;
+}) {
+  return (
+    <PixelSprite
+      frames={[SUITCASE_A, SUITCASE_B]}
+      scale={scale}
+      motion="bob"
+      className={className}
+    />
+  );
+}
+
+export function PixelParcel({
+  scale = 3,
+  className,
+}: {
+  scale?: number;
+  className?: string;
+}) {
+  return (
+    <PixelSprite
+      frames={[PARCEL_A, PARCEL_B]}
+      scale={scale}
       className={className}
     />
   );

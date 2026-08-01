@@ -5,7 +5,7 @@
  *
  * Design mirrors the marketing pages: the "cobalt stage" tokens from
  * `app/global.css` (.landing), Poppins/Inter self-hosted from /fonts, the
- * gold→coral ramp, and the pixel-art manatee. The page must stay
+ * gold→coral ramp, and the pixel-art bundle of belongings. The page must stay
  * CDN-cacheable: no per-user server state — the signed-in check and the
  * return-path continuation both run client-side via the framework's
  * sign-in-journey inline script.
@@ -32,26 +32,31 @@ const FEATURES = [
   "export this deck to Google Slides",
 ];
 
-/** Pixel maps matching app/pages/landing/pixel-art.tsx. */
-const MANATEE_A = [
-  "....GGGGGG....",
-  "..GGGGGGGGGG..",
-  ".GGGGGGGGGGGG.",
-  "GG.GGGGGGGGDG.",
-  "GGGGGGGGGGGGGG",
-  ".G.GGGGGGGGGG.",
-  "....GGGGGGGG..",
-  "......gg......",
+/** Pixel maps matching app/pages/landing/pixel-art.tsx — the knotted
+ * bundle of belongings ("manatki"). */
+const BUNDLE_A = [
+  ".....GG.....",
+  "....G..G....",
+  ".....GG.....",
+  "....gGGg....",
+  "..GGGGGGGG..",
+  ".GGGGGGGGGG.",
+  ".GGGGGGGGGG.",
+  ".gGGGGGGGGg.",
+  "..gGGGGGGg..",
+  "....gggg....",
 ];
-const MANATEE_B = [
-  "....GGGGGG....",
-  "..GGGGGGGGGG..",
-  ".G.GGGGGGGGGG.",
-  "GG.GGGGGGGGDG.",
-  "GGGGGGGGGGGGGG",
-  "....GGGGGGGGG.",
-  "......GGGGG...",
-  ".......gg.....",
+const BUNDLE_B = [
+  "....GG......",
+  "...G..G.....",
+  "....GG......",
+  "....gGGg....",
+  "..GGGGGGGG..",
+  ".GGGGGGGGGG.",
+  ".GGGGGGGGGG.",
+  ".gGGGGGGGGg.",
+  "..gGGGGGGg..",
+  "....gggg....",
 ];
 const PIXEL_COLORS: Record<string, string> = {
   G: "#FFC145",
@@ -124,9 +129,9 @@ body{font-family:'InterVariable',system-ui,sans-serif;background:var(--ink);colo
 .brand ul{list-style:none;margin-top:26px;display:flex;flex-direction:column;gap:10px}
 .brand li{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:12.5px;letter-spacing:.04em;color:var(--bone)}
 .brand li span{color:var(--gold);margin-right:10px}
-.manatee{position:relative;display:inline-block;margin-top:34px;animation:bob 4.5s ease-in-out infinite}
-.manatee .f2{position:absolute;inset:0;opacity:0;animation:fb .9s linear infinite}
-.manatee .f1{animation:fa .9s linear infinite}
+.bundle{position:relative;display:inline-block;margin-top:34px;animation:bob 4.5s ease-in-out infinite}
+.bundle .f2{position:absolute;inset:0;opacity:0;animation:fb .9s linear infinite}
+.bundle .f1{animation:fa .9s linear infinite}
 @keyframes fa{0%,49.9%{opacity:1}50%,100%{opacity:0}}
 @keyframes fb{0%,49.9%{opacity:0}50%,100%{opacity:1}}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
@@ -151,7 +156,7 @@ input:focus{border-color:var(--gold)}
 .msg.err{color:#ffb4a1}
 .msg.ok{color:var(--gold)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
-@media(prefers-reduced-motion:reduce){.manatee,.manatee .f1,.manatee .f2{animation:none}}
+@media(prefers-reduced-motion:reduce){.manatee,.bundle .f1,.bundle .f2{animation:none}}
 </style></head><body>
 <div class="wrap">
   <div class="brand">
@@ -161,7 +166,7 @@ input:focus{border-color:var(--gold)}
     <ul>
 ${features}
     </ul>
-    <span class="manatee" aria-hidden="true"><span class="f1">${pixelSvg(MANATEE_A, 3)}</span><span class="f2">${pixelSvg(MANATEE_B, 3)}</span></span>
+    <span class="bundle" aria-hidden="true"><span class="f1">${pixelSvg(BUNDLE_A, 3)}</span><span class="f2">${pixelSvg(BUNDLE_B, 3)}</span></span>
   </div>
   <div class="card">
     <div class="tabs" role="tablist">

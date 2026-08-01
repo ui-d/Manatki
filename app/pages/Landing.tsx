@@ -13,7 +13,7 @@ import {
 } from "@/lib/landing-content";
 
 import { MarketingShell, STUDIO_PATH, useStudioHref } from "./landing/chrome";
-import { PixelCursor, PixelManatee } from "./landing/pixel-art";
+import { PixelBundle, PixelCursor } from "./landing/pixel-art";
 import {
   CtaLink,
   ScreenshotFrame,
@@ -113,7 +113,7 @@ function Hero({ studio }: { studio: StudioTarget }) {
       </div>
 
       <div className="relative mt-16 border-t border-[var(--landing-line)] pt-8">
-        <PixelManatee className="absolute right-2 top-10 hidden md:block" />
+        <PixelBundle className="absolute right-2 top-10 hidden md:block" />
         <p className="landing-mono text-[11px] uppercase text-[var(--landing-muted)]">
           Everything the editor can do, chat can do too
         </p>
