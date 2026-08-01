@@ -213,17 +213,19 @@ button[title="Open agent sidebar"] {
 /* Landing page ("technical broadsheet") — the public marketing surface at `/`
    and `/welcome`. It deliberately opts out of the app theme tokens: the
    workspace is neutral grey by design, while the landing carries the brand's
-   ink-and-acid palette. Scoped to `.landing` so nothing leaks into the app. */
+   ink-and-violet palette (the same pink→purple ramp as the product logo).
+   Scoped to `.landing` so nothing leaks into the app. */
 .landing {
-  --landing-ink: #0e0e0d;
-  --landing-raised: #171715;
-  --landing-bone: #f2f0ea;
-  --landing-lime: #d8f84a;
-  --landing-clay: #e4633a;
-  /* Contrast on --landing-ink: bone 17.8:1, lime 16.2:1, muted 6.6:1,
-     clay 4.6:1 (accents and large text only, never small body copy). */
-  --landing-muted: #9c978a;
-  --landing-line: #2a2a26;
+  --landing-ink: #0e0e11;
+  --landing-raised: #16161c;
+  --landing-bone: #f1f0f5;
+  --landing-accent: #a78bfa;
+  --landing-accent-strong: #8b5cf6;
+  --landing-pink: #f472b6;
+  /* Contrast on --landing-ink: bone 17.5:1, accent 7.6:1, muted 6.5:1,
+     pink 7.4:1 (accents and large text only, never small body copy). */
+  --landing-muted: #9b97a6;
+  --landing-line: #2a2a33;
 
   background-color: var(--landing-ink);
   color: var(--landing-bone);
@@ -235,12 +237,12 @@ button[title="Open agent sidebar"] {
 }
 
 .landing ::selection {
-  background-color: var(--landing-lime);
+  background-color: var(--landing-accent);
   color: var(--landing-ink);
 }
 
 .landing :focus-visible {
-  outline: 2px solid var(--landing-lime);
+  outline: 2px solid var(--landing-accent);
   outline-offset: 3px;
   border-radius: 2px;
 }

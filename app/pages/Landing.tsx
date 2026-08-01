@@ -1,3 +1,4 @@
+import { appPath } from "@agent-native/core/client/api-path";
 import { useSession } from "@agent-native/core/client/hooks";
 import { buildSignInReturnHref } from "@agent-native/core/client/ui";
 import { IconArrowRight, IconBrandGithub } from "@tabler/icons-react";
@@ -33,7 +34,7 @@ const STUDIO_PATH = "/decks";
  * mount. Until then the href falls back to the workspace, which is correct for
  * signed-in visitors and merely one redirect longer for everyone else.
  */
-function useStudioHref(): { href: string; label: string } {
+function useStudioHref(): StudioTarget {
   const { session } = useSession();
   const [signInHref, setSignInHref] = useState(STUDIO_PATH);
 
@@ -42,8 +43,8 @@ function useStudioHref(): { href: string; label: string } {
   }, []);
 
   return session
-    ? { href: STUDIO_PATH, label: "Open the studio" }
-    : { href: signInHref, label: "Start with GitHub" };
+    ? { href: STUDIO_PATH, label: "Open the studio", signInHref: null }
+    : { href: signInHref, label: "Sign up with GitHub", signInHref };
 }
 
 /**
@@ -72,7 +73,7 @@ export default function Landing() {
     <div className="landing min-h-dvh">
       <a
         href="#main"
-        className="landing-mono sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-[var(--landing-lime)] focus:px-3 focus:py-2 focus:text-[11px] focus:uppercase focus:text-[var(--landing-ink)]"
+        className="landing-mono sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-[var(--landing-accent)] focus:px-3 focus:py-2 focus:text-[11px] focus:uppercase focus:text-[var(--landing-ink)]"
       >
         Skip to content
       </a>
@@ -89,7 +90,7 @@ export default function Landing() {
                 <h3 className="landing-display text-xl font-semibold">
                   {project.name}
                 </h3>
-                <p className="landing-mono mt-1.5 text-[11px] text-[var(--landing-clay)]">
+                <p className="landing-mono mt-1.5 text-[11px] text-[var(--landing-pink)]">
                   {project.kind}
                 </p>
                 <p className="mt-4 text-[15px] leading-relaxed text-[var(--landing-muted)]">
@@ -103,7 +104,7 @@ export default function Landing() {
                     >
                       <span
                         aria-hidden="true"
-                        className="mt-2 size-1 shrink-0 rounded-full bg-[var(--landing-lime)]"
+                        className="mt-2 size-1 shrink-0 rounded-full bg-[var(--landing-accent)]"
                       />
                       {point}
                     </li>
@@ -176,7 +177,7 @@ export default function Landing() {
           <p className="text-[15px] leading-relaxed text-[var(--landing-muted)]">
             That means the hosted app needs no server-side AI credentials at
             all, and self-hosters can optionally set a shared{" "}
-            <code className="landing-mono text-[13px] text-[var(--landing-clay)]">
+            <code className="landing-mono text-[13px] text-[var(--landing-pink)]">
               GEMINI_API_KEY
             </code>{" "}
             as a fallback for image generation. Decks live in your own database;
@@ -196,7 +197,7 @@ export default function Landing() {
                 <span key={line} className="block">
                   <span
                     aria-hidden="true"
-                    className="select-none text-[var(--landing-lime)]"
+                    className="select-none text-[var(--landing-accent)]"
                   >
                     ${" "}
                   </span>
@@ -236,16 +237,24 @@ export default function Landing() {
 interface StudioTarget {
   href: string;
   label: string;
+  /** Sign-in link for the header; null once a session exists. */
+  signInHref: string | null;
 }
 
 function SiteHeader({ studio }: { studio: StudioTarget }) {
   return (
     <header className="border-b border-[var(--landing-line)]">
-      <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-5">
+      <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-5">
         <a
           href="/"
-          className="landing-display text-[15px] font-bold uppercase tracking-[0.2em]"
+          className="landing-display flex items-center gap-2.5 text-[15px] font-bold uppercase tracking-[0.2em]"
         >
+          <img
+            src={appPath("/manatki-icon.svg")}
+            alt=""
+            aria-hidden="true"
+            className="block h-5 w-auto"
+          />
           Manatki
         </a>
         <nav
@@ -271,8 +280,16 @@ function SiteHeader({ studio }: { studio: StudioTarget }) {
         >
           <IconBrandGithub className="size-[18px]" />
         </a>
-        <CtaLink href={studio.href} className="hidden sm:inline-flex">
-          {studio.label}
+        {studio.signInHref && (
+          <a
+            href={studio.signInHref}
+            className="hidden rounded-md border border-[var(--landing-line)] px-3.5 py-2 text-[13px] font-medium transition-colors duration-150 hover:border-[var(--landing-muted)] sm:inline-flex"
+          >
+            Sign in
+          </a>
+        )}
+        <CtaLink href={studio.href}>
+          {studio.signInHref ? "Sign up" : studio.label}
         </CtaLink>
       </div>
     </header>
@@ -281,32 +298,41 @@ function SiteHeader({ studio }: { studio: StudioTarget }) {
 
 function Hero({ studio }: { studio: StudioTarget }) {
   return (
-    <div className="mx-auto max-w-5xl px-6 pb-20 pt-20 md:pb-28 md:pt-32">
-      <p className="landing-mono text-[11px] uppercase text-[var(--landing-lime)]">
-        Open source · Bring your own key · MIT
-      </p>
-      <h1 className="landing-display mt-6 max-w-3xl text-4xl font-extrabold leading-[1.05] sm:text-5xl md:text-[64px]">
-        Decks and campaigns you build{" "}
-        <span className="text-[var(--landing-lime)]">by talking</span> to them.
-      </h1>
-      <p className="mt-7 max-w-2xl text-[17px] leading-relaxed text-[var(--landing-muted)]">
-        {TAGLINE}
-      </p>
+    <div className="mx-auto max-w-6xl px-6 pb-20 pt-16 md:pb-28 md:pt-24">
+      <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-16">
+        <div>
+          <p className="landing-mono text-[11px] uppercase text-[var(--landing-accent)]">
+            Open source · Bring your own key · MIT
+          </p>
+          <h1 className="landing-display mt-6 max-w-3xl text-4xl font-extrabold leading-[1.05] sm:text-5xl md:text-[60px]">
+            Decks and campaigns you build{" "}
+            <span className="bg-gradient-to-r from-[var(--landing-pink)] to-[var(--landing-accent)] bg-clip-text text-transparent">
+              by talking
+            </span>{" "}
+            to them.
+          </h1>
+          <p className="mt-7 max-w-2xl text-[17px] leading-relaxed text-[var(--landing-muted)]">
+            {TAGLINE}
+          </p>
 
-      <div className="mt-10 flex flex-wrap items-center gap-3">
-        <CtaLink href={studio.href} size="lg">
-          {studio.label}
-          <IconArrowRight className="size-4" aria-hidden="true" />
-        </CtaLink>
-        <a
-          href={GITHUB_URL}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="inline-flex items-center gap-2 rounded-md border border-[var(--landing-line)] px-5 py-3 text-[14px] font-medium transition-colors duration-150 hover:border-[var(--landing-muted)]"
-        >
-          <IconBrandGithub className="size-4" aria-hidden="true" />
-          Read the source
-        </a>
+          <div className="mt-10 flex flex-wrap items-center gap-3">
+            <CtaLink href={studio.href} size="lg">
+              {studio.label}
+              <IconArrowRight className="size-4" aria-hidden="true" />
+            </CtaLink>
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center gap-2 rounded-md border border-[var(--landing-line)] px-5 py-3 text-[14px] font-medium transition-colors duration-150 hover:border-[var(--landing-muted)]"
+            >
+              <IconBrandGithub className="size-4" aria-hidden="true" />
+              Read the source
+            </a>
+          </div>
+        </div>
+
+        <HeroVisual />
       </div>
 
       <div className="mt-16 border-t border-[var(--landing-line)] pt-8">
@@ -318,7 +344,7 @@ function Hero({ studio }: { studio: StudioTarget }) {
             <li key={prompt} className="flex items-baseline gap-3">
               <span
                 aria-hidden="true"
-                className="landing-mono text-[13px] text-[var(--landing-lime)]"
+                className="landing-mono text-[13px] text-[var(--landing-accent)]"
               >
                 &gt;
               </span>
@@ -328,6 +354,49 @@ function Hero({ studio }: { studio: StudioTarget }) {
             </li>
           ))}
         </ul>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Decorative slide stack for the hero: three overlapping frames echoing the
+ * logo mark, with a mock slide and a chat prompt chip in front. Pure CSS, no
+ * assets to load; hidden from assistive tech and from single-column layouts.
+ */
+function HeroVisual() {
+  return (
+    <div aria-hidden="true" className="relative hidden lg:block">
+      <div className="absolute -inset-10 rounded-full bg-[radial-gradient(closest-side,rgba(139,92,246,0.22),transparent)]" />
+
+      <div className="absolute -left-5 top-12 h-56 w-44 -rotate-6 rounded-2xl border-2 border-[var(--landing-pink)]/35" />
+      <div className="absolute -right-3 -top-4 h-44 w-56 rotate-3 rounded-2xl border-2 border-[var(--landing-accent-strong)]/45" />
+
+      <div className="relative aspect-[4/3] rounded-2xl border border-[var(--landing-line)] bg-[var(--landing-raised)] p-7 shadow-2xl">
+        <div className="h-3.5 w-2/3 rounded-sm bg-gradient-to-r from-[var(--landing-pink)] to-[var(--landing-accent-strong)]" />
+        <div className="mt-5 flex flex-col gap-2.5">
+          <div className="h-2 w-full rounded-sm bg-[var(--landing-line)]" />
+          <div className="h-2 w-5/6 rounded-sm bg-[var(--landing-line)]" />
+          <div className="h-2 w-3/5 rounded-sm bg-[var(--landing-line)]" />
+        </div>
+        <div className="mt-6 grid grid-cols-3 gap-3">
+          {[0, 1, 2].map((tile) => (
+            <div
+              key={tile}
+              className="h-16 rounded-md border border-[var(--landing-line)] bg-[var(--landing-ink)]"
+            />
+          ))}
+        </div>
+
+        <div className="absolute -bottom-5 left-7 right-7 flex items-center gap-2.5 rounded-full border border-[var(--landing-line)] bg-[var(--landing-ink)] px-4 py-2.5 shadow-xl">
+          <span className="landing-mono text-[12px] text-[var(--landing-accent)]">
+            &gt;
+          </span>
+          <span className="landing-mono truncate text-[12px] text-[var(--landing-bone)]">
+            make it on our brand
+          </span>
+          <span className="ml-auto size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--landing-pink)]" />
+        </div>
       </div>
     </div>
   );
@@ -352,11 +421,11 @@ function Section({ id, index, label, lede, children }: SectionProps) {
       aria-labelledby={`${id}-heading`}
       className="border-t border-[var(--landing-line)]"
     >
-      <div className="mx-auto grid max-w-5xl gap-8 px-6 py-16 md:grid-cols-[9rem_minmax(0,1fr)] md:gap-14 md:py-24">
+      <div className="mx-auto grid max-w-6xl gap-8 px-6 py-16 md:grid-cols-[9rem_minmax(0,1fr)] md:gap-14 md:py-24">
         <div className="flex items-baseline gap-3 md:flex-col md:gap-2">
           <span
             aria-hidden="true"
-            className="landing-mono text-[11px] text-[var(--landing-lime)]"
+            className="landing-mono text-[11px] text-[var(--landing-accent)]"
           >
             {index}
           </span>
@@ -383,7 +452,7 @@ function Section({ id, index, label, lede, children }: SectionProps) {
 function SiteFooter({ studio }: { studio: StudioTarget }) {
   return (
     <footer className="border-t border-[var(--landing-line)]">
-      <div className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-12 sm:flex-row sm:items-center">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-12 sm:flex-row sm:items-center">
         <div>
           <p className="landing-display text-[15px] font-bold uppercase tracking-[0.2em]">
             Manatki
@@ -423,7 +492,7 @@ function CtaLink({
     <a
       href={href}
       className={cn(
-        "inline-flex items-center gap-2 rounded-md bg-[var(--landing-lime)] font-medium text-[var(--landing-ink)] transition-opacity duration-150 hover:opacity-85",
+        "inline-flex items-center gap-2 rounded-md bg-[var(--landing-accent)] font-medium text-[var(--landing-ink)] transition-opacity duration-150 hover:opacity-85",
         size === "lg" ? "px-5 py-3 text-[14px]" : "px-3.5 py-2 text-[13px]",
         className,
       )}
