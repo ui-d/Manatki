@@ -99,7 +99,7 @@ For a pre-flight-only check (e.g. before a streaming or one-shot fetch), use `is
 - Per-user / per-org API keys go through `saveCredential` / `resolveCredential` (`@agent-native/core/credentials`) or the `app_secrets` vault. Both encrypt values at rest with AES-256-GCM (keyed by `SECRETS_ENCRYPTION_KEY`, falling back to `BETTER_AUTH_SECRET`; production refuses to start without one).
 - Never hand-roll secrets into `settings`, `application_state`, source code, or action responses sent to the client. The credential / vault APIs above are the only sanctioned stores.
 - Never commit real keys, tokens, webhook URLs, signing secrets, or private
-  Builder/customer data in examples or fixtures. Use placeholders that cannot be
+  customer data in examples or fixtures. Use placeholders that cannot be
   mistaken for working credentials.
 
 ## User Credentials Are Per-User Data — Never `process.env`

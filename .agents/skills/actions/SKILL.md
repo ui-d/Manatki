@@ -77,7 +77,7 @@ When an action reads or writes app data, use Drizzle's query builder and portabl
 
 When an action calls an external service, never hardcode API keys, bearer
 tokens, webhook URLs, signing secrets, OAuth refresh tokens, private
-Builder/internal data, or customer data. Read user/org/workspace credentials
+internal data, or customer data. Read user/org/workspace credentials
 from `readAppSecret`, `resolveCredential`, OAuth token helpers, or the provider
 API credential adapter. Use `process.env` only for explicitly deploy-level
 configuration, and keep examples to obvious placeholders.
@@ -278,7 +278,8 @@ Rules and limits:
   history is text-only, so prefer stable `url` images the model can re-request.
 - Engine support: native Anthropic and vision-capable AI-SDK providers
   (anthropic, openai, google, openrouter) receive real image blocks; other
-  paths (Builder gateway, non-vision providers) degrade to the text notes.
+  paths (the framework's hosted gateway, non-vision providers) degrade to the
+  text notes.
 - External MCP tools need no changes — standard MCP `image` content parts are
   converted automatically under the same caps.
 
