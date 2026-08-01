@@ -12,6 +12,11 @@ export default createAuthPlugin({
     "/share",
     "/p",
     "/api/share",
+    // Agent-discovery endpoint advertised on public /p/:id pages. It does
+    // its own access control (public deck OR deck-scoped agent_access
+    // token, see server/routes/api/deck-agent-context.json.get.ts) — the
+    // global guard must not 401 anonymous agents before that check runs.
+    "/api/deck-agent-context.json",
     "/_agent-native/google-docs/callback",
     // React Router's lazy route-discovery endpoint must stay public so
     // unauthenticated viewers can open shared presentation links directly.

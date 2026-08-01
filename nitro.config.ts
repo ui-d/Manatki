@@ -8,7 +8,25 @@ import { defineNitroConfig } from "nitro/config";
 // initialization"). Grouping all @agent-native packages into ONE chunk
 // removes the cycle. This group is prepended to Nitro's defaults (defu
 // array merge) and first match wins.
+// Defense-in-depth CSP behind the slide-HTML sanitizer
+// (app/lib/sanitize-slide-html.ts). Slides legitimately need inline styles
+// and remote/data images, and React Router hydration relies on inline
+// scripts, so script-src/style-src are not restricted here — that upgrade
+// needs nonce plumbing through entry.server. What this DOES block: plugin
+// content, <base> hijacking, form exfiltration, and hostile framing of
+// shared decks.
+const SHARE_PAGE_CSP = [
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+].join("; ");
+
 export default defineNitroConfig({
+  routeRules: {
+    "/p/**": { headers: { "content-security-policy": SHARE_PAGE_CSP } },
+    "/share/**": { headers: { "content-security-policy": SHARE_PAGE_CSP } },
+  },
   rolldownConfig: {
     output: {
       codeSplitting: {

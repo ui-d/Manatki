@@ -6,9 +6,17 @@ import {
 
 import actionsRegistry from "../../.generated/actions-registry.js";
 import { prepareSlidesChatAttachments } from "../lib/chat-attachments.js";
+import { assertWithinFreeTierBudget } from "../lib/free-tier.js";
 import "../register-secrets.js";
 
-const SLIDES_BACKGROUND_RUN_SOFT_TIMEOUT_MS = 13 * 60_000;
+// Overridable so deployments running on an app-provided LLM key can shorten
+// the per-run ceiling (13 min of agent looping is a lot of owner-paid
+// tokens). Pairs with AGENT_MAX_ITERATIONS / AGENT_MAX_RUN_INPUT_TOKENS,
+// which core reads directly — see docs/PRODUCTION.md.
+const SLIDES_BACKGROUND_RUN_SOFT_TIMEOUT_MS = (() => {
+  const raw = Number(process.env.SLIDES_RUN_SOFT_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw >= 60_000 ? raw : 13 * 60_000;
+})();
 
 const INITIAL_TOOL_NAMES = [
   "view-screen",
@@ -41,7 +49,16 @@ export default createAgentChatPlugin({
   // hardcoding one action per Google Drive endpoint.
   codeExecution: { production: "sandboxed" },
   resolveOrgId: async (event) => (await getOrgContext(event)).orgId,
-  prepareRequest: prepareSlidesChatAttachments,
+  // Runs before any model call. The budget assertion is the spend BACKSTOP
+  // for run-spawn paths that bypass HTTP middleware; the user-facing 402
+  // lives in server/middleware/free-tier.ts (see the rationale there).
+  // No-op for BYO-key users and BYO-only deployments — see
+  // server/lib/free-tier.ts. Attachment prep runs after, so rejected
+  // requests never upload anything.
+  prepareRequest: async (details) => {
+    await assertWithinFreeTierBudget(details);
+    return prepareSlidesChatAttachments(details);
+  },
   systemPrompt: `You are an AI deck assistant. You create, edit, import, export, style, share, and navigate decks through actions and shared application state.
 
 Provider-specific Slides actions are shortcuts, not limits. If a first-class action cannot express the exact Google Drive endpoint, file metadata field, export format, query, request body, pagination mode, payload shape, or API version needed, call provider-api-catalog and provider-api-docs as needed, then call provider-api-request against the real provider API. Use the raw provider API escape hatch instead of weakening the answer or claiming Slides cannot do something the underlying Google Drive API can do.
