@@ -75,10 +75,27 @@ export interface ShareDeckResponse {
 export interface ShareLinkSummary {
   token: string;
   createdAt: string;
+  /** Count of anonymous `view` events recorded for this link. */
+  viewCount: number;
+  /** Distinct viewer sessions — approximates unique viewers, PII-free. */
+  uniqueSessions: number;
+  lastViewedAt: string | null;
 }
 
 export interface ShareLinkListResponse {
   links: ShareLinkSummary[];
+}
+
+export type ShareLinkEventType = "view" | "slide";
+
+/** POST /api/share/:token/events — anonymous viewer analytics beacon. */
+export interface ShareLinkEventsRequest {
+  sessionId: string;
+  events: Array<{
+    type: ShareLinkEventType;
+    slideIndex?: number;
+    dwellMs?: number;
+  }>;
 }
 
 export interface SharedDeckResponse {

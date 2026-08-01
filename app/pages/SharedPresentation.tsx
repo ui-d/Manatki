@@ -8,6 +8,7 @@ import { useParams } from "react-router";
 import PresentationView from "@/components/presentation/PresentationView";
 import SharedAssetGallery from "@/components/presentation/SharedAssetGallery";
 import type { Slide } from "@/context/DeckContext";
+import { recordShareView } from "@/lib/share-view-event";
 
 interface SharedPresentationProps {
   initialDeck?: SharedDeckResponse | null;
@@ -51,6 +52,12 @@ export default function SharedPresentation({
         setLoading(false);
       });
   }, [token, initialDeck, initialError]);
+
+  // Fires once per browser session after the snapshot actually renders —
+  // covers both the presenter flow and the social gallery below.
+  useEffect(() => {
+    if (token && deck) recordShareView(token);
+  }, [token, deck]);
 
   if (loading) {
     return (

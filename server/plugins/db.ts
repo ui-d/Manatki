@@ -258,6 +258,24 @@ const runSlidesMigrations = runMigrations(
   ALTER TABLE deck_share_links ADD COLUMN IF NOT EXISTS revoked_at TEXT;
   CREATE INDEX IF NOT EXISTS deck_share_links_deck_created_idx ON deck_share_links (deck_id, created_at)`,
     },
+    // v24: share-link view analytics. Append-only anonymous event rows keyed
+    // by share token — never IP, user agent, or other PII; unique viewers are
+    // approximated by a client-minted session id. Rows are pruned with the
+    // same 30-day TTL as their parent link and deleted when it is revoked.
+    {
+      version: 24,
+      name: "slides-share-link-events-table",
+      sql: `CREATE TABLE IF NOT EXISTS share_link_events (
+    id TEXT PRIMARY KEY,
+    token TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    slide_index INTEGER,
+    dwell_ms INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS share_link_events_token_created_idx ON share_link_events (token, created_at)`,
+    },
   ],
   { table: "slides_migrations" },
 );

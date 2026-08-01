@@ -18,6 +18,8 @@ const mockGetQuery = vi.hoisted(() =>
   vi.fn((..._args: unknown[]) => ({}) as Record<string, unknown>),
 );
 const selectRows = vi.hoisted(() => ({ current: [] as unknown[] }));
+const statsRows = vi.hoisted(() => ({ current: [] as unknown[] }));
+const eventCount = vi.hoisted(() => ({ current: 0 }));
 const updatedSets = vi.hoisted(() => ({ current: [] as unknown[] }));
 
 vi.mock("h3", () => ({
@@ -32,8 +34,10 @@ vi.mock("drizzle-orm", () => ({
   desc: vi.fn(),
   eq: vi.fn(),
   gt: vi.fn(),
+  inArray: vi.fn(),
   isNull: vi.fn(),
   lt: vi.fn(),
+  sql: vi.fn(),
 }));
 
 vi.mock("@agent-native/core/server", () => ({
@@ -56,6 +60,7 @@ vi.mock("../db", () => ({
         where: vi.fn(() => ({
           limit: vi.fn(async () => selectRows.current),
           orderBy: vi.fn(async () => selectRows.current),
+          groupBy: vi.fn(async () => statsRows.current),
         })),
       })),
     })),
@@ -66,6 +71,7 @@ vi.mock("../db", () => ({
         }),
       })),
     })),
+    $count: vi.fn(async () => eventCount.current),
   }),
   schema: {
     deckShareLinks: {
@@ -77,6 +83,15 @@ vi.mock("../db", () => ({
       ownerEmail: "owner_email_col",
       deckId: "deck_id_col",
       revokedAt: "revoked_at_col",
+    },
+    shareLinkEvents: {
+      id: "event_id_col",
+      token: "event_token_col",
+      sessionId: "session_id_col",
+      eventType: "event_type_col",
+      slideIndex: "slide_index_col",
+      dwellMs: "dwell_ms_col",
+      createdAt: "event_created_at_col",
     },
   },
 }));
@@ -91,7 +106,9 @@ vi.mock("./request-auth-context.js", () => ({
 import {
   getSharedDeck,
   listShareLinks,
+  recordShareLinkEvents,
   revokeShareLink,
+  revokeShareLinksForDeck,
   shareDeck,
 } from "./share";
 
@@ -320,6 +337,8 @@ describe("revokeShareLink", () => {
     expect(
       (updatedSets.current[0] as { revokedAt: string }).revokedAt,
     ).toBeTruthy();
+    // Analytics events die with the link.
+    expect(mockDeleteWhere).toHaveBeenCalled();
   });
 
   it("404s for a non-owner without deck access, and writes nothing", async () => {
@@ -366,10 +385,28 @@ describe("revokeShareLink", () => {
   });
 });
 
+describe("revokeShareLinksForDeck", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    updatedSets.current = [];
+  });
+
+  it("revokes the deck's links and deletes their analytics events", async () => {
+    await revokeShareLinksForDeck("deck-1");
+
+    expect(updatedSets.current).toHaveLength(1);
+    expect(
+      (updatedSets.current[0] as { revokedAt: string }).revokedAt,
+    ).toBeTruthy();
+    expect(mockDeleteWhere).toHaveBeenCalled();
+  });
+});
+
 describe("listShareLinks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     selectRows.current = [];
+    statsRows.current = [];
     mockGetQuery.mockReturnValue({ deckId: "deck-1" });
     mockResolveSlidesRequestAuthContext.mockResolvedValue({
       email: "owner@example.com",
@@ -379,7 +416,7 @@ describe("listShareLinks", () => {
     );
   });
 
-  it("returns active links for a deck the caller administers", async () => {
+  it("returns active links with zeroed stats when nothing was viewed", async () => {
     mockAssertAccess.mockResolvedValue({ resource: {} });
     selectRows.current = [
       { token: "token-1", createdAt: "2026-07-31T00:00:00.000Z" },
@@ -389,7 +426,50 @@ describe("listShareLinks", () => {
 
     expect(mockAssertAccess).toHaveBeenCalledWith("deck", "deck-1", "admin");
     expect(result.links).toEqual([
-      { token: "token-1", createdAt: "2026-07-31T00:00:00.000Z" },
+      {
+        token: "token-1",
+        createdAt: "2026-07-31T00:00:00.000Z",
+        viewCount: 0,
+        uniqueSessions: 0,
+        lastViewedAt: null,
+      },
+    ]);
+  });
+
+  it("merges per-token view stats into the link list", async () => {
+    mockAssertAccess.mockResolvedValue({ resource: {} });
+    selectRows.current = [
+      { token: "token-1", createdAt: "2026-07-30T00:00:00.000Z" },
+      { token: "token-2", createdAt: "2026-07-31T00:00:00.000Z" },
+    ];
+    // Postgres returns bigint aggregates as strings — the handler must
+    // coerce them so the client gets numbers.
+    statsRows.current = [
+      {
+        token: "token-1",
+        viewCount: "3",
+        uniqueSessions: "2",
+        lastViewedAt: "2026-08-01T10:00:00.000Z",
+      },
+    ];
+
+    const result = (await listShareLinks({} as any)) as Record<string, unknown>;
+
+    expect(result.links).toEqual([
+      {
+        token: "token-1",
+        createdAt: "2026-07-30T00:00:00.000Z",
+        viewCount: 3,
+        uniqueSessions: 2,
+        lastViewedAt: "2026-08-01T10:00:00.000Z",
+      },
+      {
+        token: "token-2",
+        createdAt: "2026-07-31T00:00:00.000Z",
+        viewCount: 0,
+        uniqueSessions: 0,
+        lastViewedAt: null,
+      },
     ]);
   });
 
@@ -401,5 +481,121 @@ describe("listShareLinks", () => {
 
     expect(mockSetResponseStatus).toHaveBeenCalledWith({}, 403);
     expect(result.links).toBeUndefined();
+  });
+});
+
+describe("recordShareLinkEvents", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    insertedRows.current = [];
+    selectRows.current = [];
+    eventCount.current = 0;
+    mockGetRouterParam.mockReturnValue("token-1");
+    mockReadBody.mockResolvedValue({
+      sessionId: "session-abcdef12",
+      events: [{ type: "view" }],
+    });
+  });
+
+  it("records a view event for a live link", async () => {
+    selectRows.current = [
+      {
+        token: "token-1",
+        createdAt: new Date().toISOString(),
+        revokedAt: null,
+      },
+    ];
+
+    const result = (await recordShareLinkEvents({} as any)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(result).toEqual({ success: true });
+    expect(insertedRows.current).toHaveLength(1);
+    const rows = insertedRows.current[0] as Array<Record<string, unknown>>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      token: "token-1",
+      sessionId: "session-abcdef12",
+      eventType: "view",
+    });
+    expect(rows[0].id).toBeTruthy();
+  });
+
+  it("404s for revoked links with the shared-deck message and writes nothing", async () => {
+    selectRows.current = [
+      {
+        token: "token-1",
+        createdAt: new Date().toISOString(),
+        revokedAt: new Date().toISOString(),
+      },
+    ];
+
+    const result = (await recordShareLinkEvents({} as any)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(mockSetResponseStatus).toHaveBeenCalledWith({}, 404);
+    expect(result.error).toBe("Shared presentation not found or has expired");
+    expect(insertedRows.current).toHaveLength(0);
+  });
+
+  it("404s for expired links identically", async () => {
+    selectRows.current = [
+      {
+        token: "token-1",
+        createdAt: new Date(
+          Date.now() - 31 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
+        revokedAt: null,
+      },
+    ];
+
+    const result = (await recordShareLinkEvents({} as any)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(mockSetResponseStatus).toHaveBeenCalledWith({}, 404);
+    expect(result.error).toBe("Shared presentation not found or has expired");
+    expect(insertedRows.current).toHaveLength(0);
+  });
+
+  it("400s on malformed payloads without touching the database", async () => {
+    mockReadBody.mockResolvedValue({
+      sessionId: "session-abcdef12",
+      events: [{ type: "not-a-real-type" }],
+    });
+
+    const result = (await recordShareLinkEvents({} as any)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(mockSetResponseStatus).toHaveBeenCalledWith({}, 400);
+    expect(result.error).toBeTruthy();
+    expect(insertedRows.current).toHaveLength(0);
+  });
+
+  it("rejects once the per-token event cap is reached", async () => {
+    selectRows.current = [
+      {
+        token: "token-1",
+        createdAt: new Date().toISOString(),
+        revokedAt: null,
+      },
+    ];
+    eventCount.current = 50_000;
+
+    const result = (await recordShareLinkEvents({} as any)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(mockSetResponseStatus).toHaveBeenCalledWith({}, 429);
+    expect(result.error).toBeTruthy();
+    expect(insertedRows.current).toHaveLength(0);
   });
 });

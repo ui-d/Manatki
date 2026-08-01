@@ -9,13 +9,14 @@ import type {
   ShareLinkSummary,
   SharedDeckResponse,
 } from "@shared/api";
-import { and, desc, eq, gt, isNull, lt } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lt, sql } from "drizzle-orm";
 import {
   defineEventHandler,
   getQuery,
   getRouterParam,
   setResponseStatus,
 } from "h3";
+import { z } from "zod";
 
 import { getDb, schema } from "../db";
 import {
@@ -24,6 +25,21 @@ import {
 } from "./request-auth-context.js";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * A link is live when it exists, is not revoked, and is within its TTL.
+ * Every public endpoint must apply exactly this check and answer dead links
+ * with the same 404 body as missing ones, so tokens cannot be probed.
+ */
+function isShareLinkLive(link: {
+  createdAt: string;
+  revokedAt?: string | null;
+}): boolean {
+  if (link.revokedAt) return false;
+  return Date.now() - new Date(link.createdAt).getTime() <= THIRTY_DAYS_MS;
+}
+
+const SHARE_LINK_GONE = "Shared presentation not found or has expired";
 
 /**
  * POST /api/share
@@ -101,14 +117,14 @@ async function createShareLink(
     deckId,
   });
 
-  // Prune expired rows opportunistically (no await — background)
+  // Prune expired rows opportunistically (no await — background). Analytics
+  // events share their parent link's TTL, so prune them on the same trigger.
+  const pruneCutoff = new Date(Date.now() - THIRTY_DAYS_MS).toISOString();
   db.delete(schema.deckShareLinks)
-    .where(
-      lt(
-        schema.deckShareLinks.createdAt,
-        new Date(Date.now() - THIRTY_DAYS_MS).toISOString(),
-      ),
-    )
+    .where(lt(schema.deckShareLinks.createdAt, pruneCutoff))
+    .catch(() => {});
+  db.delete(schema.shareLinkEvents)
+    .where(lt(schema.shareLinkEvents.createdAt, pruneCutoff))
     .catch(() => {});
 
   const response: ShareDeckResponse = { shareToken: token };
@@ -136,21 +152,14 @@ export const getSharedDeck = defineEventHandler(async (event) => {
   const shared = rows[0];
   if (!shared) {
     setResponseStatus(event, 404);
-    return { error: "Shared presentation not found or has expired" };
+    return { error: SHARE_LINK_GONE };
   }
 
-  // Revoked links 404 identically to missing ones so a revoked token leaks
-  // nothing about whether it ever existed.
-  if (shared.revokedAt) {
+  // Revoked and expired links 404 identically to missing ones so a dead
+  // token leaks nothing about whether it ever existed.
+  if (!isShareLinkLive(shared)) {
     setResponseStatus(event, 404);
-    return { error: "Shared presentation not found or has expired" };
-  }
-
-  // Check expiry
-  const age = Date.now() - new Date(shared.createdAt).getTime();
-  if (age > THIRTY_DAYS_MS) {
-    setResponseStatus(event, 404);
-    return { error: "Shared presentation not found or has expired" };
+    return { error: SHARE_LINK_GONE };
   }
 
   // Legacy rows store a bare slide array; newer rows wrap it in an
@@ -222,11 +231,137 @@ export const listShareLinks = defineEventHandler(async (event) => {
         )
         .orderBy(desc(schema.deckShareLinks.createdAt));
 
-      const links: ShareLinkSummary[] = rows;
+      const links: ShareLinkSummary[] = await attachViewStats(db, rows);
       return { links };
     },
     session,
   );
+});
+
+/**
+ * Merge per-token view aggregates into the link rows. `sum(case …)` and
+ * string-coerced counts keep the SQL portable across SQLite and Postgres
+ * (Postgres returns bigint aggregates as strings).
+ */
+async function attachViewStats(
+  db: ReturnType<typeof getDb>,
+  rows: Array<{ token: string; createdAt: string }>,
+): Promise<ShareLinkSummary[]> {
+  if (rows.length === 0) return [];
+
+  const stats = await db
+    .select({
+      token: schema.shareLinkEvents.token,
+      viewCount: sql<string>`sum(case when ${schema.shareLinkEvents.eventType} = 'view' then 1 else 0 end)`,
+      uniqueSessions: sql<string>`count(distinct ${schema.shareLinkEvents.sessionId})`,
+      // Filtered to page views so phase-2 `slide` dwell events cannot skew
+      // the "last viewed" label shown in the UI.
+      lastViewedAt: sql<string>`max(case when ${schema.shareLinkEvents.eventType} = 'view' then ${schema.shareLinkEvents.createdAt} end)`,
+    })
+    .from(schema.shareLinkEvents)
+    .where(
+      inArray(
+        schema.shareLinkEvents.token,
+        rows.map((row) => row.token),
+      ),
+    )
+    .groupBy(schema.shareLinkEvents.token);
+
+  const byToken = new Map(stats.map((stat) => [stat.token, stat]));
+  return rows.map((row) => {
+    const stat = byToken.get(row.token);
+    return {
+      ...row,
+      viewCount: Number(stat?.viewCount ?? 0),
+      uniqueSessions: Number(stat?.uniqueSessions ?? 0),
+      lastViewedAt: stat?.lastViewedAt ?? null,
+    };
+  });
+}
+
+const MAX_EVENTS_PER_REQUEST = 20;
+// Flood backstop for the unauthenticated beacon endpoint — far above any
+// real audience for a single 30-day link, cheap to check per request.
+const MAX_EVENTS_PER_TOKEN = 50_000;
+
+const shareLinkEventsSchema = z.object({
+  sessionId: z.string().min(8).max(64),
+  events: z
+    .array(
+      z.object({
+        type: z.enum(["view", "slide"]),
+        slideIndex: z.number().int().min(0).max(9_999).optional(),
+        dwellMs: z
+          .number()
+          .int()
+          .min(0)
+          .max(60 * 60 * 1000)
+          .optional(),
+      }),
+    )
+    .min(1)
+    .max(MAX_EVENTS_PER_REQUEST),
+});
+
+/**
+ * POST /api/share/:token/events
+ * Anonymous viewer-analytics beacon for a share link. Unauthenticated by
+ * design (viewers have no session), so it only ever appends bounded,
+ * PII-free rows — and answers dead tokens exactly like getSharedDeck.
+ */
+export const recordShareLinkEvents = defineEventHandler(async (event) => {
+  const token = getRouterParam(event, "token");
+  if (!token) {
+    setResponseStatus(event, 400);
+    return { error: "Token is required" };
+  }
+
+  const body = await readBody(event);
+  const parsed = shareLinkEventsSchema.safeParse(body);
+  if (!parsed.success) {
+    setResponseStatus(event, 400);
+    return { error: "Invalid events payload" };
+  }
+
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(schema.deckShareLinks)
+    .where(eq(schema.deckShareLinks.token, token))
+    .limit(1);
+  const link = rows[0];
+
+  if (!link || !isShareLinkLive(link)) {
+    setResponseStatus(event, 404);
+    return { error: SHARE_LINK_GONE };
+  }
+
+  // Count-then-insert is not transactional, so concurrent requests at the
+  // boundary can overshoot the cap by up to one batch — acceptable for an
+  // anti-abuse backstop this far above any real audience.
+  const existing = await db.$count(
+    schema.shareLinkEvents,
+    eq(schema.shareLinkEvents.token, token),
+  );
+  if (existing + parsed.data.events.length > MAX_EVENTS_PER_TOKEN) {
+    setResponseStatus(event, 429);
+    return { error: "Event limit reached for this link" };
+  }
+
+  const now = new Date().toISOString();
+  await db.insert(schema.shareLinkEvents).values(
+    parsed.data.events.map((entry) => ({
+      id: crypto.randomUUID(),
+      token,
+      sessionId: parsed.data.sessionId,
+      eventType: entry.type,
+      slideIndex: entry.slideIndex ?? null,
+      dwellMs: entry.dwellMs ?? null,
+      createdAt: now,
+    })),
+  );
+
+  return { success: true };
 });
 
 /**
@@ -284,6 +419,12 @@ export const revokeShareLink = defineEventHandler(async (event) => {
         .set({ revokedAt: new Date().toISOString() })
         .where(eq(schema.deckShareLinks.token, token));
 
+      // Viewer analytics die with the link — the owner gave up the stats by
+      // revoking, and dead tokens must not accumulate rows.
+      await db
+        .delete(schema.shareLinkEvents)
+        .where(eq(schema.shareLinkEvents.token, token));
+
       return { success: true };
     },
     session,
@@ -292,10 +433,24 @@ export const revokeShareLink = defineEventHandler(async (event) => {
 
 /**
  * Revoke every share link minted from a deck — called on deck deletion so
- * public snapshots don't outlive the deck.
+ * public snapshots don't outlive the deck. Analytics events for those links
+ * die with them, same as a single-link revoke.
  */
 export async function revokeShareLinksForDeck(deckId: string): Promise<void> {
   const db = getDb();
+
+  // Subquery instead of select-then-delete: one round trip, and it also
+  // covers links already revoked individually (whose events are gone anyway).
+  await db.delete(schema.shareLinkEvents).where(
+    inArray(
+      schema.shareLinkEvents.token,
+      db
+        .select({ token: schema.deckShareLinks.token })
+        .from(schema.deckShareLinks)
+        .where(eq(schema.deckShareLinks.deckId, deckId)),
+    ),
+  );
+
   await db
     .update(schema.deckShareLinks)
     .set({ revokedAt: new Date().toISOString() })

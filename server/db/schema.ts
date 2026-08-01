@@ -73,6 +73,22 @@ export const deckShareLinks = table("deck_share_links", {
   revokedAt: text("revoked_at"),
 });
 
+// Append-only, anonymous view analytics for share links (v24). One row per
+// event, keyed by share token. Deliberately stores no IP, user agent, or
+// other PII — unique viewers are approximated by a client-minted session id.
+// Rows share the parent link's 30-day TTL prune and are deleted on revoke.
+// slide_index/dwell_ms are written by per-slide events (phase 2); `view`
+// events leave them NULL.
+export const shareLinkEvents = table("share_link_events", {
+  id: text("id").primaryKey(),
+  token: text("token").notNull(),
+  sessionId: text("session_id").notNull(),
+  eventType: text("event_type").notNull(), // 'view' | 'slide'
+  slideIndex: integer("slide_index"),
+  dwellMs: integer("dwell_ms"),
+  createdAt: text("created_at").notNull().default(now()),
+});
+
 export const uploadedAssets = table("uploaded_assets", {
   id: text("id").primaryKey(),
   filename: text("filename").notNull(),

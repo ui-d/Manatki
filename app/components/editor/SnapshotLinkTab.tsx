@@ -22,6 +22,21 @@ function shareUrlFor(token: string): string {
   return `${window.location.origin}${appBasePath()}/share/${token}`;
 }
 
+function viewStatsLine(
+  link: ShareLinkSummary,
+  t: ReturnType<typeof useT>,
+): string {
+  if (link.viewCount === 0) return t("share.noViewsYet");
+  const summary = t("share.viewSummary", {
+    views: link.viewCount,
+    viewers: link.uniqueSessions,
+  });
+  if (!link.lastViewedAt) return summary;
+  return `${summary} · ${t("share.lastViewed", {
+    date: new Date(link.lastViewedAt).toLocaleDateString(),
+  })}`;
+}
+
 /**
  * "Snapshot link" tab inside the framework Share dialog: mint, list, copy,
  * and revoke public read-only snapshot links (frozen copies of the deck,
@@ -159,9 +174,14 @@ export default function SnapshotLinkTab({ deckId }: SnapshotLinkTabProps) {
                 key={link.token}
                 className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-2 py-1.5"
               >
-                <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground/80">
-                  {shareUrlFor(link.token)}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <span className="block truncate font-mono text-[11px] text-foreground/80">
+                    {shareUrlFor(link.token)}
+                  </span>
+                  <span className="block truncate text-[10px] text-muted-foreground">
+                    {viewStatsLine(link, t)}
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={() => void handleCopy(link.token)}
