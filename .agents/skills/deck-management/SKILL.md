@@ -93,7 +93,20 @@ pnpm action db-exec --sql "INSERT INTO decks (id, title, data) VALUES (?, ?, ?)"
 4. **The `data` column is the full source of truth** -- title is duplicated at the top level for listing queries
 5. **SSE events** (`source: "resources"`) fire when decks change, keeping the UI in sync
 
-## Presenter extensions (this app)
+## Share links & viewer analytics
+
+Public read-only snapshot links (`/share/<token>`, 30-day TTL) are minted and
+revoked from the editor's Share dialog ("Snapshot link" tab). Anonymous
+viewers generate PII-free analytics events: page views plus per-slide dwell
+(presenter navigation for decks, on-screen visibility for social galleries).
+
+- `get-share-analytics --deckId=<id>` -- every active link of a deck with
+  `viewCount`, `uniqueSessions`, `lastViewedAt`, and per-slide
+  `slides[{ slideIndex, viewers, totalDwellMs, avgDwellMs }]`. Requires admin
+  on the deck. Use this when the user asks how a shared deck is performing or
+  which slides hold attention.
+- Viewer identity is never available: sessions are random client-minted ids.
+  Do not promise per-person stats. Revoking a link deletes its analytics.
 
 Image decks and presenter screenshot grids are covered in the `presenter`
 skill. Relevant actions: `import-images-deck`, `attach-slide-screenshots`,

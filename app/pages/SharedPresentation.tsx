@@ -114,7 +114,9 @@ export default function SharedPresentation({
   // Social projects are mixed-canvas asset sets — a gallery, not a
   // uniform-canvas presenter flow.
   if (deck.kind === "social") {
-    return <SharedAssetGallery title={deck.title} slides={slides} />;
+    return (
+      <SharedAssetGallery title={deck.title} slides={slides} token={token} />
+    );
   }
 
   // Use a fake deckId that routes "exit" back to the share page itself

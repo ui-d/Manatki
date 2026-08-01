@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { deleteDeck, seedDeck, slideHtml } from "./helpers";
+import { deleteDeck, runAction, seedDeck, slideHtml } from "./helpers";
 
 /**
  * Snapshot share-link lifecycle against the real server: mint a token,
@@ -145,6 +145,88 @@ test.describe("share-link lifecycle", () => {
 
     await anonPage.reload();
     await expect(anonPage.getByText("Shared Snapshot")).not.toBeVisible();
+    await anonContext.close();
+  });
+});
+
+/**
+ * Social share pages render a scroll gallery, so dwell comes from an
+ * IntersectionObserver instead of presenter navigation: an asset flushes
+ * its dwell when it leaves the viewport. Also covers the agent-facing
+ * get-share-analytics action end to end.
+ */
+test.describe("share-link social gallery dwell", () => {
+  let deckId: string;
+
+  test.beforeAll(() => {
+    deckId = seedDeck({
+      title: "E2E Share Social",
+      kind: "social",
+      sizePreset: "ig-story",
+      slides: [
+        { id: "asset-1", content: slideHtml("Gallery Asset One") },
+        { id: "asset-2", content: slideHtml("Gallery Asset Two") },
+      ],
+    });
+  });
+
+  test.afterAll(() => {
+    if (deckId) deleteDeck(deckId);
+  });
+
+  test("gallery dwell lands in per-slide analytics", async ({
+    page,
+    browser,
+  }) => {
+    await page.goto("/");
+    const createRes = await page.request.post("/api/share", {
+      data: { deck: { id: deckId } },
+    });
+    expect(createRes.ok()).toBe(true);
+    const { shareToken } = (await createRes.json()) as { shareToken: string };
+
+    // Narrow viewport forces the single-column gallery, so the second
+    // story asset starts below the fold and the first fills the screen.
+    const anonContext = await browser.newContext({
+      viewport: { width: 480, height: 800 },
+    });
+    const anonPage = await anonContext.newPage();
+    await anonPage.goto(`/share/${shareToken}`);
+    await expect(anonPage.getByText("Gallery Asset One").first()).toBeVisible();
+
+    // Dwell past the 500ms noise floor, then scroll the second asset to the
+    // viewport top — the first disengages and flushes its dwell event.
+    await anonPage.waitForTimeout(800);
+    const slideEventPost = anonPage.waitForResponse(
+      (res) =>
+        res.url().includes(`/api/share/${shareToken}/events`) &&
+        res.request().method() === "POST" &&
+        (res.request().postData() ?? "").includes('"slide"'),
+    );
+    await anonPage.locator('[data-asset-index="1"]').scrollIntoViewIfNeeded();
+    expect((await slideEventPost).ok()).toBe(true);
+
+    const statsRes = await page.request.get(`/api/share/${shareToken}/stats`);
+    expect(statsRes.ok()).toBe(true);
+    const stats = (await statsRes.json()) as {
+      slides: Array<{
+        slideIndex: number;
+        viewers: number;
+        avgDwellMs: number;
+      }>;
+    };
+    const firstAsset = stats.slides.find((s) => s.slideIndex === 0);
+    expect(firstAsset?.viewers).toBe(1);
+    expect(firstAsset?.avgDwellMs).toBeGreaterThanOrEqual(500);
+
+    // The agent path: get-share-analytics returns the same aggregates for
+    // the deck's links (CLI runs as the deck-owning dev account). The CLI
+    // prints a console object dump that collapses nested arrays, so assert
+    // the top-level fields; per-slide numbers are covered by /stats above.
+    const actionOutput = runAction("get-share-analytics", { deckId });
+    expect(actionOutput).toContain(shareToken);
+    expect(actionOutput).toMatch(/viewCount: 1/);
+
     await anonContext.close();
   });
 });

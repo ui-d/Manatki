@@ -107,6 +107,7 @@ vi.mock("./request-auth-context.js", () => ({
 }));
 
 import {
+  collectShareAnalyticsForDeck,
   getShareLinkStats,
   getSharedDeck,
   listShareLinks,
@@ -526,8 +527,8 @@ describe("getShareLinkStats", () => {
         },
       ],
       [
-        { slideIndex: 2, viewers: "1", totalDwellMs: "3000" },
-        { slideIndex: 0, viewers: "2", totalDwellMs: "9000" },
+        { token: "token-1", slideIndex: 2, viewers: "1", totalDwellMs: "3000" },
+        { token: "token-1", slideIndex: 0, viewers: "2", totalDwellMs: "9000" },
       ],
     ];
 
@@ -636,6 +637,67 @@ describe("getShareLinkStats", () => {
 
     expect(mockAssertAccess).toHaveBeenCalledWith("deck", "deck-1", "admin");
     expect(result.token).toBe("token-1");
+  });
+});
+
+describe("collectShareAnalyticsForDeck", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    selectRows.current = [];
+    groupByResults.current = [];
+  });
+
+  it("merges overall and per-slide stats for every active link", async () => {
+    selectRows.current = [
+      { token: "token-1", createdAt: "2026-07-30T00:00:00.000Z" },
+      { token: "token-2", createdAt: "2026-07-31T00:00:00.000Z" },
+    ];
+    groupByResults.current = [
+      [
+        {
+          token: "token-1",
+          viewCount: "2",
+          uniqueSessions: "1",
+          lastViewedAt: "2026-08-01T10:00:00.000Z",
+        },
+      ],
+      [
+        { token: "token-1", slideIndex: 1, viewers: "1", totalDwellMs: "4000" },
+        { token: "token-1", slideIndex: 0, viewers: "1", totalDwellMs: "2000" },
+      ],
+    ];
+
+    const result = await collectShareAnalyticsForDeck("deck-1");
+
+    expect(result).toEqual({
+      deckId: "deck-1",
+      links: [
+        {
+          token: "token-1",
+          createdAt: "2026-07-30T00:00:00.000Z",
+          viewCount: 2,
+          uniqueSessions: 1,
+          lastViewedAt: "2026-08-01T10:00:00.000Z",
+          slides: [
+            { slideIndex: 0, viewers: 1, totalDwellMs: 2000, avgDwellMs: 2000 },
+            { slideIndex: 1, viewers: 1, totalDwellMs: 4000, avgDwellMs: 4000 },
+          ],
+        },
+        {
+          token: "token-2",
+          createdAt: "2026-07-31T00:00:00.000Z",
+          viewCount: 0,
+          uniqueSessions: 0,
+          lastViewedAt: null,
+          slides: [],
+        },
+      ],
+    });
+  });
+
+  it("returns an empty link list for decks with no active links", async () => {
+    const result = await collectShareAnalyticsForDeck("deck-1");
+    expect(result).toEqual({ deckId: "deck-1", links: [] });
   });
 });
 

@@ -4,8 +4,10 @@ import { readBody } from "@agent-native/core/server";
 import { assertAccess, ForbiddenError } from "@agent-native/core/sharing";
 import { toSharedDeckSlide } from "@shared/api";
 import type {
+  ShareAnalyticsResponse,
   ShareDeckRequest,
   ShareDeckResponse,
+  ShareLinkSlideStat,
   ShareLinkStatsResponse,
   ShareLinkSummary,
   SharedDeckResponse,
@@ -439,45 +441,108 @@ export const getShareLinkStats = defineEventHandler(async (event) => {
         .groupBy(schema.shareLinkEvents.token);
       const overall = overallRows[0];
 
-      const slideRows = await db
-        .select({
-          slideIndex: schema.shareLinkEvents.slideIndex,
-          viewers: sql<string>`count(distinct ${schema.shareLinkEvents.sessionId})`,
-          totalDwellMs: sql<string>`coalesce(sum(${schema.shareLinkEvents.dwellMs}), 0)`,
-        })
-        .from(schema.shareLinkEvents)
-        .where(
-          and(
-            eq(schema.shareLinkEvents.token, token),
-            eq(schema.shareLinkEvents.eventType, "slide"),
-            isNotNull(schema.shareLinkEvents.slideIndex),
-          ),
-        )
-        .groupBy(schema.shareLinkEvents.slideIndex);
+      const slideStats = await getSlideStatsByToken(db, [token]);
 
       const response: ShareLinkStatsResponse = {
         token,
         viewCount: Number(overall?.viewCount ?? 0),
         uniqueSessions: Number(overall?.uniqueSessions ?? 0),
         lastViewedAt: overall?.lastViewedAt ?? null,
-        slides: slideRows
-          .map((row) => {
-            const viewers = Number(row.viewers);
-            const totalDwellMs = Number(row.totalDwellMs);
-            return {
-              slideIndex: Number(row.slideIndex),
-              viewers,
-              totalDwellMs,
-              avgDwellMs: viewers > 0 ? Math.round(totalDwellMs / viewers) : 0,
-            };
-          })
-          .sort((a, b) => a.slideIndex - b.slideIndex),
+        slides: slideStats.get(token) ?? [],
       };
       return response;
     },
     session,
   );
 });
+
+/**
+ * Per-slide dwell aggregates for a set of tokens, grouped so one query
+ * serves both the single-link stats endpoint and the deck-wide collector.
+ * Lists come back sorted by slide index with PG bigint strings coerced.
+ */
+async function getSlideStatsByToken(
+  db: ReturnType<typeof getDb>,
+  tokens: string[],
+): Promise<Map<string, ShareLinkSlideStat[]>> {
+  const byToken = new Map<string, ShareLinkSlideStat[]>();
+  if (tokens.length === 0) return byToken;
+
+  const rows = await db
+    .select({
+      token: schema.shareLinkEvents.token,
+      slideIndex: schema.shareLinkEvents.slideIndex,
+      viewers: sql<string>`count(distinct ${schema.shareLinkEvents.sessionId})`,
+      totalDwellMs: sql<string>`coalesce(sum(${schema.shareLinkEvents.dwellMs}), 0)`,
+    })
+    .from(schema.shareLinkEvents)
+    .where(
+      and(
+        inArray(schema.shareLinkEvents.token, tokens),
+        eq(schema.shareLinkEvents.eventType, "slide"),
+        isNotNull(schema.shareLinkEvents.slideIndex),
+      ),
+    )
+    .groupBy(schema.shareLinkEvents.token, schema.shareLinkEvents.slideIndex);
+
+  for (const row of rows) {
+    const viewers = Number(row.viewers);
+    const totalDwellMs = Number(row.totalDwellMs);
+    const stats = byToken.get(row.token) ?? [];
+    stats.push({
+      slideIndex: Number(row.slideIndex),
+      viewers,
+      totalDwellMs,
+      avgDwellMs: viewers > 0 ? Math.round(totalDwellMs / viewers) : 0,
+    });
+    byToken.set(row.token, stats);
+  }
+  for (const stats of byToken.values()) {
+    stats.sort((a, b) => a.slideIndex - b.slideIndex);
+  }
+  return byToken;
+}
+
+/**
+ * Analytics for every active link of a deck — the data source for the
+ * get-share-analytics action. Access checks are the caller's job.
+ */
+export async function collectShareAnalyticsForDeck(
+  deckId: string,
+): Promise<ShareAnalyticsResponse> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      token: schema.deckShareLinks.token,
+      createdAt: schema.deckShareLinks.createdAt,
+    })
+    .from(schema.deckShareLinks)
+    .where(
+      and(
+        eq(schema.deckShareLinks.deckId, deckId),
+        isNull(schema.deckShareLinks.revokedAt),
+        gt(
+          schema.deckShareLinks.createdAt,
+          new Date(Date.now() - THIRTY_DAYS_MS).toISOString(),
+        ),
+      ),
+    )
+    .orderBy(desc(schema.deckShareLinks.createdAt));
+
+  const links = await attachViewStats(db, rows);
+  const slideStats = await getSlideStatsByToken(
+    db,
+    rows.map((row) => row.token),
+  );
+
+  return {
+    deckId,
+    links: links.map((link) => ({
+      ...link,
+      slides: slideStats.get(link.token) ?? [],
+    })),
+  };
+}
 
 /**
  * DELETE /api/share/:token

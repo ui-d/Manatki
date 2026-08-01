@@ -133,3 +133,100 @@ export function createShareDwellTracker(
     return null;
   }
 }
+
+/** Server-side cap on events per beacon request. */
+const MAX_EVENTS_PER_POST = 20;
+
+export interface ShareAssetDwellRecorder {
+  /** An asset became engaged (mostly visible); starts its dwell clock. */
+  enter: (index: number) => void;
+  /** An asset stopped being engaged; flushes its dwell. */
+  leave: (index: number) => void;
+  /** Detach listeners and flush every in-progress dwell (unmount). */
+  destroy: () => void;
+}
+
+/**
+ * Dwell recorder for the social share gallery, where several assets can be
+ * engaged at once (unlike the presenter's single current slide). Callers
+ * report enter/leave from an IntersectionObserver; hidden tabs pause every
+ * clock and restart it on return. Same best-effort rules as the slide
+ * tracker: null for previews/blocked storage, sub-500ms dwells dropped.
+ */
+export function createAssetDwellRecorder(
+  token: string,
+): ShareAssetDwellRecorder | null {
+  if (typeof window === "undefined") return null;
+  try {
+    if (shouldSkipShareView(window.location.search)) return null;
+    const sessionId = getShareSessionId(token);
+
+    // `engaged` mirrors what the observer reports; `dwellSince` is cleared
+    // while the tab is hidden so backgrounded time never counts.
+    const engaged = new Set<number>();
+    const dwellSince = new Map<number, number>();
+
+    const finishedEvents = (): ShareLinkEventsRequest["events"] => {
+      const now = performance.now();
+      const events: ShareLinkEventsRequest["events"] = [];
+      for (const [index, since] of dwellSince) {
+        const dwellMs = clampDwellMs(now - since);
+        if (dwellMs >= MIN_DWELL_MS) {
+          events.push({ type: "slide", slideIndex: index, dwellMs });
+        }
+      }
+      dwellSince.clear();
+      return events;
+    };
+
+    const flushAll = () => {
+      const events = finishedEvents();
+      for (let i = 0; i < events.length; i += MAX_EVENTS_PER_POST) {
+        postShareEvents(token, {
+          sessionId,
+          events: events.slice(i, i + MAX_EVENTS_PER_POST),
+        });
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        flushAll();
+      } else {
+        const now = performance.now();
+        for (const index of engaged) dwellSince.set(index, now);
+      }
+    };
+    const handlePageHide = () => flushAll();
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("pagehide", handlePageHide);
+
+    return {
+      enter(index: number) {
+        if (engaged.has(index)) return;
+        engaged.add(index);
+        dwellSince.set(index, performance.now());
+      },
+      leave(index: number) {
+        if (!engaged.delete(index)) return;
+        const since = dwellSince.get(index);
+        dwellSince.delete(index);
+        if (since === undefined) return;
+        const dwellMs = clampDwellMs(performance.now() - since);
+        if (dwellMs < MIN_DWELL_MS) return;
+        postShareEvents(token, {
+          sessionId,
+          events: [{ type: "slide", slideIndex: index, dwellMs }],
+        });
+      },
+      destroy() {
+        document.removeEventListener("visibilitychange", handleVisibility);
+        window.removeEventListener("pagehide", handlePageHide);
+        flushAll();
+      },
+    };
+  } catch {
+    return null;
+  }
+}

@@ -116,6 +116,17 @@ export interface ShareLinkStatsResponse {
   slides: ShareLinkSlideStat[];
 }
 
+/** One link's full analytics inside the get-share-analytics action result. */
+export interface ShareLinkAnalytics extends ShareLinkSummary {
+  slides: ShareLinkSlideStat[];
+}
+
+/** get-share-analytics action — all active links of a deck with stats. */
+export interface ShareAnalyticsResponse {
+  deckId: string;
+  links: ShareLinkAnalytics[];
+}
+
 export interface SharedDeckResponse {
   title: string;
   slides: SharedDeckSlide[];
