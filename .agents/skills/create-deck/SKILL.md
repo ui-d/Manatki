@@ -23,6 +23,11 @@ mixed-size campaigns), read `create-social-assets` instead — those are
    `Untitled Deck` or another placeholder title for a generated deck.
 5. Navigate to the new deck.
 6. Call `add-slide` once per slide in slide order, waiting for each result.
+7. If the deck links a design system, finish with
+   `lint-deck-brand --deckId=<id>`. Fix any findings with targeted
+   `update-slide` edits (replace each flagged literal with the suggested
+   token value), then re-run until clean. See the `design-systems` skill,
+   Brand Linting section.
 
 When the UI has already created the empty deck, keep its id and rename it before
 adding the first slide. Call `patch-deck` with a `patch-deck-fields` operation

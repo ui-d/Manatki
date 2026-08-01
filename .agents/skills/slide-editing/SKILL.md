@@ -106,6 +106,13 @@ For visual elements (diagrams, charts, photos), use placeholder divs:
 
 Never try to recreate complex visuals with raw HTML/CSS. Use placeholders and generate proper images via the image generation flow.
 
+## Brand Check After Edits
+
+After editing slides on a deck that links a design system, run
+`lint-deck-brand --deckId=<id>` and fix any findings the edit introduced
+(replace flagged literals with the suggested token values via further
+targeted edits). Skip it for pure copy changes that touch no styles.
+
 ## Slide Layouts
 
 Common layout patterns:

@@ -70,6 +70,11 @@ whose geometry is closest.
    `--width`/`--height`). After a change that crosses archetypes
    (square → story, post → banner), pass rewritten `--fullContent` in the
    same call — never letterbox the old layout into the new frame.
+6. If the project links a design system, finish with
+   `lint-deck-brand --deckId=<id>` and fix findings with targeted
+   `update-slide` edits before reporting the campaign done (see the
+   `design-systems` skill, Brand Linting section). Off-brand colors are
+   easy to introduce when re-composing per canvas.
 
 ## Rules
 
