@@ -83,6 +83,25 @@ Decks the user has starred are their intended reference decks. `list-decks`
 reports `starred` so you can offer them when the user asks for something "like
 our usual deck".
 
+## Templates vs Reference Decks
+
+Two different reuse verbs — pick by what the user said:
+
+- **Template — clone the structure, replace the content.** "Use the X
+  template" / "new deck from the launch template" → `list-decks --templates
+  only` to find it, then `create-from-template --templateId <id>`. The copy
+  keeps every layout, type scale, and slide order; you rewrite copy/imagery
+  for the new topic with targeted `update-slide` edits and finish with
+  `lint-deck-brand`. Save any deck or social project as a template with
+  `save-as-template` (optionally `--slideIds` for a single asset).
+- **Reference deck — imitate the style, invent the structure.** "In the
+  style of X" → `get-deck-reference-context` as described above. Slide
+  count and order come from the new content, not from X.
+
+A template is also a valid reference deck (`get-deck-reference-context`
+works on it unchanged) — but never the other way around: don't clone a
+non-template deck's structure unless the user asked to duplicate it.
+
 ## Workspace Defaults
 
 A workspace admin can flag one deck and one design system as the workspace

@@ -290,6 +290,18 @@ For "make a campaign for X":
    times out, ask the user to open the project and retry, or point them to
    Export → "Download all as ZIP" in the editor.
 
+## Templates
+
+Any social project can be saved as a reusable template with
+`save-as-template` — pass `--slideIds` to save a single asset (e.g. "save
+this banner as a template"). "Use the X template" means clone-and-rebrand:
+`list-decks --templates only` → `create-from-template --templateId <id>` →
+rewrite copy/imagery for the new brief with targeted `update-slide` edits,
+keeping every layout and canvas size — then `lint-deck-brand`. For
+"in the style of X" (imitate, don't clone) use
+`get-deck-reference-context` instead; see `create-deck` for the full
+decision rule.
+
 ## Adapting an existing asset to another format
 
 "Turn this post into a story" / the editor's per-asset **Adapt to

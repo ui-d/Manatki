@@ -44,6 +44,14 @@ export default defineAction({
       .enum(["all", "me"])
       .optional()
       .describe("Set to 'me' to list only decks created by the current user"),
+    templates: z
+      .enum(["only", "exclude", "all"])
+      .optional()
+      .describe(
+        "Template filter: 'only' lists saved templates (isTemplate), " +
+          "'exclude' hides them, 'all' (default) mixes both. Ignored by the " +
+          "light projection, which never reads the deck body.",
+      ),
   }),
   http: { method: "GET" },
   link: () => ({
@@ -103,8 +111,15 @@ export default defineAction({
       return { count: 0, decks: [] };
     }
 
-    const items = rows.map((row) => {
-      const data = JSON.parse(row.data);
+    const parsed = rows.map((row) => ({ row, data: JSON.parse(row.data) }));
+    const filtered =
+      args.templates === "only"
+        ? parsed.filter(({ data }) => data?.isTemplate === true)
+        : args.templates === "exclude"
+          ? parsed.filter(({ data }) => data?.isTemplate !== true)
+          : parsed;
+
+    const items = filtered.map(({ row, data }) => {
       const slides = data?.slides;
       if (args.includeSlides === "true" || args.firstSlideOnly === "true") {
         const allSlides = Array.isArray(slides) ? slides : [];
@@ -137,6 +152,7 @@ export default defineAction({
           visibility: row.visibility,
           designSystemId: row.designSystemId ?? null,
           starred: data?.starred === true,
+          ...(data?.isTemplate === true ? { isTemplate: true } : {}),
         };
       }
       return {
@@ -147,6 +163,15 @@ export default defineAction({
         visibility: row.visibility,
         designSystemId: row.designSystemId ?? null,
         starred: data?.starred === true,
+        ...(data?.isTemplate === true
+          ? {
+              isTemplate: true,
+              templateDescription:
+                typeof data?.templateMeta?.description === "string"
+                  ? data.templateMeta.description
+                  : undefined,
+            }
+          : {}),
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
       };

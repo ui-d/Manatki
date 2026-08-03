@@ -50,6 +50,15 @@ in a social project). Each slide may carry its own `size` with the same
 shape, which overrides the deck aspect ratio for that slide only. See
 `create-social-assets` for the social workflow.
 
+Templates: a deck with `isTemplate: true` plus
+`templateMeta { description?, sourceDeckId?, savedAt }` is a saved template —
+an ordinary deck row that the library shows under its Templates filter.
+Create one with `save-as-template` (optionally `slideIds` for a subset),
+instantiate with `create-from-template` (strips the flag, links a design
+system, returns rebrand instructions), and filter listings with
+`list-decks --templates only|exclude|all`. Never set these fields by writing
+deck rows directly.
+
 ## Reading Decks
 
 **From scripts:**

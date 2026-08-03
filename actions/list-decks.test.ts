@@ -11,6 +11,20 @@ const deckRows = [
     createdAt: "2026-05-03T00:00:00.000Z",
     updatedAt: "2026-05-03T00:00:00.000Z",
   },
+  {
+    id: "deck_tpl",
+    title: "Launch — Template",
+    data: JSON.stringify({
+      slides: [{ id: "slide-1" }, { id: "slide-2" }],
+      isTemplate: true,
+      templateMeta: { description: "Product launch set", savedAt: "x" },
+    }),
+    visibility: "private",
+    designSystemId: null,
+    ownerEmail: "alice@example.com",
+    createdAt: "2026-05-04T00:00:00.000Z",
+    updatedAt: "2026-05-04T00:00:00.000Z",
+  },
 ];
 
 const orderByFn = vi.fn(async () => deckRows);
@@ -87,7 +101,7 @@ describe("list-decks", () => {
       updatedAt: "updated_at_col",
       visibility: "visibility_col",
     });
-    expect(result.count).toBe(1);
+    expect(result.count).toBe(2);
   });
 
   it("can limit results to decks created by the current user", async () => {
@@ -99,5 +113,27 @@ describe("list-decks", () => {
         { column: "owner_email_col", value: "alice@example.com" },
       ],
     });
+  });
+
+  it("mixes templates in by default and flags them", async () => {
+    const result = await action.run({});
+
+    expect(result.count).toBe(2);
+    const template = result.decks.find((d: any) => d.id === "deck_tpl");
+    expect(template).toMatchObject({
+      isTemplate: true,
+      templateDescription: "Product launch set",
+    });
+    expect(result.decks.find((d: any) => d.id === "deck_123")).not.toHaveProperty(
+      "isTemplate",
+    );
+  });
+
+  it("templates: 'only' returns just templates; 'exclude' hides them", async () => {
+    const only = await action.run({ templates: "only" });
+    expect(only.decks.map((d: any) => d.id)).toEqual(["deck_tpl"]);
+
+    const excluded = await action.run({ templates: "exclude" });
+    expect(excluded.decks.map((d: any) => d.id)).toEqual(["deck_123"]);
   });
 });

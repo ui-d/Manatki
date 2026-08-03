@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { getDb, schema } from "../server/db/index.js";
 import { getDeckUrl } from "./_app-url.js";
+import { copyDeckData } from "./_deck-copy.js";
 
 export default defineAction({
   description:
@@ -35,17 +36,12 @@ export default defineAction({
     const db = getDb();
     const newId = clientNewId || `deck-${nanoid()}`;
     const now = new Date().toISOString();
-    const deckData = JSON.parse(source.data);
-
-    // Generate new IDs for all slides so edits to the copy don't collide
-    for (const slide of deckData.slides || []) {
-      slide.id = `slide-${nanoid(8)}`;
-    }
 
     const newTitle = title || `Copy of ${source.title}`;
-    deckData.title = newTitle;
-    deckData.createdAt = now;
-    deckData.updatedAt = now;
+    const deckData = copyDeckData(JSON.parse(source.data), {
+      title: newTitle,
+      now,
+    });
     deckData.designSystemId = source.designSystemId ?? deckData.designSystemId;
 
     await db.insert(schema.decks).values({
@@ -66,7 +62,7 @@ export default defineAction({
     return {
       id: newId,
       title: newTitle,
-      slideCount: (deckData.slides || []).length,
+      slideCount: Array.isArray(deckData.slides) ? deckData.slides.length : 0,
       url: getDeckUrl(newId),
     };
   },
