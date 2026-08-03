@@ -159,6 +159,14 @@ export interface Deck {
   slideCount?: number;
   /** Hosted URL of the rasterized first-slide thumbnail (library grid). */
   previewUrl?: string | null;
+  /** True for saved templates — shown under the library's Templates filter. */
+  isTemplate?: boolean;
+  /** Present on templates: card description + provenance. */
+  templateMeta?: {
+    description?: string;
+    sourceDeckId?: string;
+    savedAt?: string;
+  };
   /** True when this copy came from the first-slide-only list load and
    * `slides` holds only slides[0]. Editor/presenter must full-fetch first;
    * `ensureFullDeck` clears it. */

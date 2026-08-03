@@ -15,6 +15,7 @@ import {
   IconPresentation,
   IconRefresh,
   IconStack2,
+  IconTemplate,
   IconUserCircle,
 } from "@tabler/icons-react";
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
@@ -38,6 +39,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -328,13 +336,35 @@ export default function Index() {
   const kindParam = searchParams.get("kind");
   const kindFilter: DeckKind | "all" =
     kindParam === "deck" || kindParam === "social" ? kindParam : "all";
+  // Orthogonal to kind: ?filter=templates shows saved templates; the default
+  // library view hides them so day-to-day projects stay uncluttered.
+  const templatesView = searchParams.get("filter") === "templates";
   const visibleDecks = useMemo(() => {
+    const byTemplate = templatesView
+      ? decks.filter((deck) => deck.isTemplate === true)
+      : decks.filter((deck) => deck.isTemplate !== true);
     const byOwner =
-      deckFilter === "mine" ? decks.filter((deck) => deck.createdByMe) : decks;
+      deckFilter === "mine"
+        ? byTemplate.filter((deck) => deck.createdByMe)
+        : byTemplate;
     return kindFilter === "all"
       ? byOwner
       : byOwner.filter((deck) => projectKindOf(deck) === kindFilter);
-  }, [deckFilter, kindFilter, decks]);
+  }, [deckFilter, kindFilter, templatesView, decks]);
+  const setTemplatesView = useCallback(
+    (value: boolean) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (value) next.set("filter", "templates");
+          else next.delete("filter");
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
   const setKindFilter = useCallback(
     (value: string) => {
       setSearchParams(
@@ -807,6 +837,48 @@ export default function Index() {
     [navigate],
   );
 
+  // Instantiate a template as-is: mechanical copy, open the new project.
+  const handleUseTemplate = useCallback(
+    async (id: string) => {
+      if (duplicatingRef.current) return;
+      duplicatingRef.current = id;
+      setDuplicating(id);
+      try {
+        const { id: newId } = await callAction("create-from-template", {
+          templateId: id,
+        });
+        navigate(`/deck/${newId}`);
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : t("home.useTemplateFailed"),
+        );
+      } finally {
+        duplicatingRef.current = null;
+        setDuplicating(null);
+      }
+    },
+    [navigate, t],
+  );
+
+  // Instantiate + rebrand: the agent clones the template and rewrites the
+  // copy for the brief (delegate-to-agent — no inline LLM calls in the UI).
+  const [templateBriefDeck, setTemplateBriefDeck] = useState<Deck | null>(null);
+  const [templateBrief, setTemplateBrief] = useState("");
+  const submitTemplateBrief = useCallback(() => {
+    const target = templateBriefDeck;
+    const brief = templateBrief.trim();
+    if (!target || !brief) return;
+    agentSubmit(
+      t("home.useTemplateAgentLabel", { title: target.title }),
+      `Call create-from-template with templateId: ${target.id}. ` +
+        `Then rewrite every slide's copy and imagery for this brief, keeping every layout, ` +
+        `type scale, canvas size, and slide structure exactly as-is:\n\n${brief}\n\n` +
+        `Finish by running lint-deck-brand on the new project and fixing any findings.`,
+    );
+    setTemplateBriefDeck(null);
+    setTemplateBrief("");
+  }, [agentSubmit, t, templateBrief, templateBriefDeck]);
+
   useSetPageTitle(t("home.decksTitle"));
 
   // Inject the "New" split menu into the global header actions slot.
@@ -972,6 +1044,24 @@ export default function Index() {
                   {t("home.kindFilterSocial")}
                 </ToggleGroupItem>
               </ToggleGroup>
+              <ToggleGroup
+                type="single"
+                value={templatesView ? "templates" : ""}
+                onValueChange={(value) =>
+                  setTemplatesView(value === "templates")
+                }
+                className="w-fit rounded-lg border border-border bg-card p-0.5"
+                size="sm"
+              >
+                <ToggleGroupItem
+                  value="templates"
+                  aria-label={t("home.filterTemplates")}
+                  className="h-7 rounded-md px-3 text-xs data-[state=on]:bg-accent"
+                >
+                  <IconTemplate className="me-1.5 h-3.5 w-3.5" />
+                  {t("home.filterTemplates")}
+                </ToggleGroupItem>
+              </ToggleGroup>
             </div>
             <span className="text-xs text-muted-foreground/70">
               {visibleDecks.length < decks.length
@@ -993,7 +1083,9 @@ export default function Index() {
                   the grid never offers to create something the current view
                   would immediately hide. */}
               {NEW_PROJECT_OPTIONS.filter(
-                ({ kind }) => kindFilter === "all" || kindFilter === kind,
+                ({ kind }) =>
+                  !templatesView &&
+                  (kindFilter === "all" || kindFilter === kind),
               ).map(({ kind, Icon, cardTitleKey, hintKey }) => (
                 <button
                   key={kind}
@@ -1033,19 +1125,66 @@ export default function Index() {
                   isWorkspaceDefault={workspaceReferenceDeck?.id === deck.id}
                   canSetWorkspaceDefault={canManageWorkspaceDefaults}
                   onSetWorkspaceDefault={handleSetWorkspaceDefaultDeck}
+                  onUseTemplate={handleUseTemplate}
+                  onUseTemplateWithBrief={(id) => {
+                    const target = decks.find((d) => d.id === id);
+                    if (target) setTemplateBriefDeck(target);
+                  }}
                 />
               ))}
               {visibleDecks.length === 0 && (
                 <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
-                  {kindFilter === "all"
-                    ? t("home.noMineDecks")
-                    : t("home.noKindMatches")}
+                  {templatesView
+                    ? t("home.templateEmptyState")
+                    : kindFilter === "all"
+                      ? t("home.noMineDecks")
+                      : t("home.noKindMatches")}
                 </div>
               )}
             </div>
           </div>
         </>
       )}
+
+      <Dialog
+        open={!!templateBriefDeck}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTemplateBriefDeck(null);
+            setTemplateBrief("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {t("home.templateBriefTitle", {
+                title: templateBriefDeck?.title ?? "",
+              })}
+            </DialogTitle>
+          </DialogHeader>
+          <textarea
+            value={templateBrief}
+            onChange={(e) => setTemplateBrief(e.target.value)}
+            placeholder={t("home.templateBriefPlaceholder")}
+            className="h-24 w-full resize-none rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-[#609FF8]/50"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                submitTemplateBrief();
+              }
+            }}
+          />
+          <DialogFooter>
+            <Button
+              onClick={submitTemplateBrief}
+              disabled={!templateBrief.trim() || generating}
+            >
+              {t("home.templateBriefSubmit")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={!!workspaceDefaultCandidate}

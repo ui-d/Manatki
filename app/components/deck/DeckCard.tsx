@@ -10,8 +10,10 @@ import {
   IconPencil,
   IconPalette,
   IconPlus,
+  IconSparkles,
   IconStar,
   IconStarFilled,
+  IconTemplate,
 } from "@tabler/icons-react";
 import { memo, useState, useRef, useEffect } from "react";
 import { Link } from "react-router";
@@ -39,6 +41,10 @@ interface DeckCardProps {
   isWorkspaceDefault?: boolean;
   canSetWorkspaceDefault?: boolean;
   onSetWorkspaceDefault?: (id: string, isDefault: boolean) => void;
+  /** Instantiate this template as-is (only meaningful when deck.isTemplate). */
+  onUseTemplate?: (id: string) => void;
+  /** Instantiate + agent-rebrand for a brief (only when deck.isTemplate). */
+  onUseTemplateWithBrief?: (id: string) => void;
 }
 
 function DeckCard({
@@ -52,10 +58,13 @@ function DeckCard({
   isWorkspaceDefault = false,
   canSetWorkspaceDefault = false,
   onSetWorkspaceDefault,
+  onUseTemplate,
+  onUseTemplateWithBrief,
 }: DeckCardProps) {
   const t = useT();
   const firstSlide = deck.slides?.[0];
   const isSocial = isSocialProject(deck);
+  const isTemplate = deck.isTemplate === true;
   const [isRenaming, setIsRenaming] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameValue, setRenameValue] = useState(deck.title);
@@ -169,6 +178,12 @@ function DeckCard({
                     count: deck.slideCount ?? deck.slides.length,
                   })}
             </span>
+            {isTemplate && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-[#8B5CF6]/40 px-1.5 py-0.5 text-[10px] text-[#8B5CF6]">
+                <IconTemplate className="h-3 w-3 shrink-0" />
+                {t("home.templateBadge")}
+              </span>
+            )}
             {isSocial && (
               <span className="inline-flex shrink-0 items-center gap-1 rounded border border-[#FF5A2B]/40 px-1.5 py-0.5 text-[10px] text-[#FF5A2B]">
                 <IconLayoutGrid className="h-3 w-3 shrink-0" />
@@ -251,6 +266,29 @@ function DeckCard({
               }
             }}
           >
+            {isTemplate && onUseTemplate && (
+              <DropdownMenuItem
+                onSelect={() => {
+                  if (isDuplicating) return;
+                  onUseTemplate(deck.id);
+                }}
+                disabled={isDuplicating}
+              >
+                <IconTemplate className="w-3.5 h-3.5 me-2" />
+                {t("home.useTemplate")}
+              </DropdownMenuItem>
+            )}
+            {isTemplate && onUseTemplateWithBrief && (
+              <DropdownMenuItem
+                onSelect={() => onUseTemplateWithBrief(deck.id)}
+              >
+                <IconSparkles className="w-3.5 h-3.5 me-2" />
+                {t("home.useTemplateWithBrief")}
+              </DropdownMenuItem>
+            )}
+            {isTemplate && (onUseTemplate || onUseTemplateWithBrief) && (
+              <DropdownMenuSeparator />
+            )}
             <DropdownMenuItem
               onSelect={(e) => {
                 e.preventDefault();

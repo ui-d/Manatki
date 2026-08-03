@@ -6,6 +6,7 @@ import {
 } from "@agent-native/core/client/api-path";
 import { type CollabUser } from "@agent-native/core/client/collab";
 import { useT } from "@agent-native/core/client/i18n";
+import { callAction } from "@agent-native/core/client/hooks";
 import { RunsTray } from "@agent-native/core/client/progress";
 import { ShareButton } from "@agent-native/core/client/sharing";
 import { CreativeContextShareTab } from "@agent-native/creative-context/client";
@@ -37,6 +38,7 @@ import {
   IconDotsVertical,
   IconPalette,
   IconLoader2,
+  IconTemplate,
 } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
 import { useState, useRef, useEffect } from "react";
@@ -1169,6 +1171,34 @@ graph TD
             <IconHistory className="w-4 h-4 mr-2" />
             {t("editorToolbar.savedVersions")}
           </DropdownMenuItem>
+          {deck.isTemplate !== true && (
+            <DropdownMenuItem
+              onSelect={async () => {
+                try {
+                  const result = await callAction("save-as-template", {
+                    deckId,
+                  });
+                  toast.success(t("editorToolbar.savedAsTemplateToast"), {
+                    action: {
+                      label: result.title,
+                      onClick: () => {
+                        window.location.href = appPath(`/deck/${result.id}`);
+                      },
+                    },
+                  });
+                } catch (error) {
+                  toast.error(
+                    error instanceof Error
+                      ? error.message
+                      : t("editorToolbar.saveAsTemplateFailed"),
+                  );
+                }
+              }}
+            >
+              <IconTemplate className="w-4 h-4 mr-2" />
+              {t("editorToolbar.saveAsTemplate")}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setTheme(isDark ? "light" : "dark")}>
             {isDark ? (
