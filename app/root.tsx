@@ -68,6 +68,10 @@ const STANDALONE_ROUTES = new Set([
   "/presentations",
   "/social-assets",
   "/self-host",
+  "/privacy",
+  // Token landing pages from newsletter emails — must render logged out.
+  "/newsletter/confirm",
+  "/newsletter/unsubscribe",
 ]);
 
 export const links: LinksFunction = () => [

@@ -26,6 +26,7 @@ import DeckCard from "@/components/deck/DeckCard";
 import ImportImagesDeckButton from "@/components/deck/ImportImagesDeckButton";
 import PromptPopover from "@/components/editor/PromptDialog";
 import type { UploadedFile } from "@/components/editor/PromptDialog";
+import { NewsletterPrompt } from "@/components/newsletter/NewsletterPrompt";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,17 +56,17 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { Deck } from "@/context/DeckContext";
 import { useDecks } from "@/context/DeckContext";
-import {
-  getPresetSize,
-  SIZE_PRESET_VALUES,
-  type DeckKind,
-} from "@/lib/slide-size";
 import { useAgentGenerating } from "@/hooks/use-agent-generating";
 import { useDesignSystems } from "@/hooks/use-design-systems";
 import { useWorkspaceDefaults } from "@/hooks/use-workspace-defaults";
 import { createDeckAgentMessage } from "@/lib/agent-visible-message";
 import { savePromptToComposerDraft } from "@/lib/composer-draft";
 import { projectKindOf } from "@/lib/project-kind";
+import {
+  getPresetSize,
+  SIZE_PRESET_VALUES,
+  type DeckKind,
+} from "@/lib/slide-size";
 import { cn } from "@/lib/utils";
 
 const NEW_DECK_DRAFT_SCOPE = "slides-new-deck";
@@ -655,7 +656,7 @@ export default function Index() {
       ? [
           "",
           "PROJECT KIND: social — this is a social-media / marketing asset project, NOT a presentation.",
-          "The project was created with kind: \"social\" and a default canvas of 1080x1080 (ig-square).",
+          'The project was created with kind: "social" and a default canvas of 1080x1080 (ig-square).',
           `Each asset is one slide with its OWN canvas size. Pass \`sizePreset\` on every \`add-slide\` call (${SIZE_PRESET_VALUES.join(", ")}) or explicit \`width\`+\`height\` pixels for custom banners.`,
           "Follow the `create-social-assets` skill for per-format HTML templates and type scale — social canvases are ~2x larger than deck canvases, so fonts must scale up accordingly.",
           "Do not add presenter-style title/agenda/closing slides. Every asset must stand alone.",
@@ -867,6 +868,7 @@ export default function Index() {
 
   return (
     <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 sm:py-10">
+      <NewsletterPrompt />
       {loading ? (
         <>
           <div className="flex items-center justify-end mb-4">

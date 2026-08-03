@@ -192,6 +192,12 @@ function SiteFooter({ studio }: { studio: StudioTarget }) {
         <div className="flex flex-wrap items-center gap-4 sm:ml-auto">
           <NavLinks />
           <a
+            href="/privacy"
+            className="landing-mono text-[11px] uppercase text-[var(--landing-muted)] transition-colors duration-150 hover:text-[var(--landing-bone)]"
+          >
+            Privacy
+          </a>
+          <a
             href={GITHUB_URL}
             target="_blank"
             rel="noreferrer noopener"

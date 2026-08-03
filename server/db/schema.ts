@@ -100,6 +100,27 @@ export const uploadedAssets = table("uploaded_assets", {
   createdAt: text("created_at").notNull().default(now()),
 });
 
+// Newsletter double-opt-in subscribers (v25). Keyed by normalized lowercase
+// email, not ownableColumns — the row must be resolvable by token from a
+// logged-out unsubscribe/confirm link, and there are no org/sharing
+// semantics. consent_* / confirmed_at / unsubscribed_at form the GDPR audit
+// trail. unsubscribe_token is minted once and never rotated so links in old
+// newsletter footers keep working; confirm_token is cleared on confirm.
+export const newsletterSubscribers = table("newsletter_subscribers", {
+  email: text("email").primaryKey(),
+  status: text("status").notNull().default("pending"), // 'pending' | 'subscribed' | 'unsubscribed'
+  consentSource: text("consent_source").notNull(), // 'decks-prompt' | 'settings'
+  consentedAt: text("consented_at").notNull(),
+  confirmedAt: text("confirmed_at"),
+  unsubscribedAt: text("unsubscribed_at"),
+  confirmToken: text("confirm_token"),
+  confirmTokenExpiresAt: text("confirm_token_expires_at"),
+  unsubscribeToken: text("unsubscribe_token").notNull(),
+  resendContactId: text("resend_contact_id"),
+  createdAt: text("created_at").notNull().default(now()),
+  updatedAt: text("updated_at").notNull().default(now()),
+});
+
 export const slideComments = table("slide_comments", {
   id: text("id").primaryKey(),
   deckId: text("deck_id").notNull(),

@@ -42,6 +42,27 @@ const messages = {
       "Manage the agent's model, API keys, automations, voice, and other controls.",
     openAgentSettings: "Manage agent",
   },
+  newsletter: {
+    title: "Newsletter",
+    settingsDescription:
+      "Occasional product news and slide-making tips by email — at most a couple of emails per month. Double opt-in; unsubscribe anytime.",
+    toggleLabel: "Subscribe to the newsletter",
+    promptTitle: "Want product news & tips?",
+    promptBody:
+      "Occasional product news and slide-making tips by email. Double opt-in, unsubscribe anytime.",
+    promptSubscribe: "Subscribe",
+    promptDecline: "No thanks",
+    promptDismiss: "Dismiss",
+    pendingTitle: "Check your inbox",
+    pendingNote:
+      "Confirmation email sent — click the link in it to finish subscribing.",
+    resend: "Resend email",
+    devHint:
+      "Email isn't configured on this server — the confirmation link is printed in the server logs.",
+    subscribedSince: "Subscribed since {{date}}",
+    updateFailed: "Couldn't update your subscription. Please try again.",
+    privacyPolicy: "Privacy policy",
+  },
   agent: {
     emptyState: "Ask me anything about your presentations",
     thisDeck: "This Deck",

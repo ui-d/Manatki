@@ -11,6 +11,7 @@ import { CreativeContextSettingsLink } from "@agent-native/creative-context/clie
 import { useSetPageTitle } from "@agent-native/toolkit/app-shell";
 import { useMemo } from "react";
 
+import { NewsletterSettingsCard } from "@/components/newsletter/NewsletterSettingsCard";
 import {
   Card,
   CardContent,
@@ -39,6 +40,12 @@ export default function SettingsRoute() {
         label: t("settings.languageTitle"),
         keywords: "language locale translation i18n",
         hash: "language",
+      },
+      {
+        id: "slides-newsletter",
+        label: t("newsletter.title"),
+        keywords: "newsletter email subscribe unsubscribe consent gdpr",
+        hash: "newsletter",
       },
     ],
     [t],
@@ -72,6 +79,8 @@ export default function SettingsRoute() {
               <LanguagePicker label={t("settings.languageLabel")} />
             </CardContent>
           </Card>
+
+          <NewsletterSettingsCard />
         </div>
       }
       team={

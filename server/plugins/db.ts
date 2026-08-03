@@ -276,6 +276,30 @@ const runSlidesMigrations = runMigrations(
   );
   CREATE INDEX IF NOT EXISTS share_link_events_token_created_idx ON share_link_events (token, created_at)`,
     },
+    // v25: newsletter double-opt-in subscribers. Email is the identity (no
+    // ownableColumns — rows must resolve by token with no session). Unique
+    // indexes on both tokens back the logged-out confirm/unsubscribe lookups;
+    // multiple NULL confirm_tokens are allowed in both SQLite and Postgres.
+    {
+      version: 25,
+      name: "slides-newsletter-subscribers-table",
+      sql: `CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+    email TEXT PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'pending',
+    consent_source TEXT NOT NULL,
+    consented_at TEXT NOT NULL,
+    confirmed_at TEXT,
+    unsubscribed_at TEXT,
+    confirm_token TEXT,
+    confirm_token_expires_at TEXT,
+    unsubscribe_token TEXT NOT NULL,
+    resend_contact_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS newsletter_subscribers_confirm_token_idx ON newsletter_subscribers (confirm_token);
+  CREATE UNIQUE INDEX IF NOT EXISTS newsletter_subscribers_unsubscribe_token_idx ON newsletter_subscribers (unsubscribe_token)`,
+    },
   ],
   { table: "slides_migrations" },
 );

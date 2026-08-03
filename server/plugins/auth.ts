@@ -18,6 +18,13 @@ export default createAuthPlugin({
     // global guard must not 401 anonymous agents before that check runs.
     "/api/deck-agent-context.json",
     "/_agent-native/google-docs/callback",
+    // Newsletter double-opt-in links land here from email, logged out. The
+    // pages and their two actions treat the 256-bit random token as the
+    // credential; both actions are idempotent and never echo the subscriber's
+    // email. Guarded by actions/newsletter-actions.test.ts.
+    "/newsletter",
+    "/_agent-native/actions/confirm-newsletter",
+    "/_agent-native/actions/unsubscribe-newsletter-by-token",
     // React Router's lazy route-discovery endpoint must stay public so
     // unauthenticated viewers can open shared presentation links directly.
     "/__manifest",
