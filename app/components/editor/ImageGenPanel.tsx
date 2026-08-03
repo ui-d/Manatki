@@ -93,6 +93,9 @@ export default function ImageGenPanel({
       contextParts.push(
         `\nTarget: Slide ${slideContext.slideIndex + 1} (id: ${slideContext.slideId}) in deck "${slideContext.deckTitle}" (id: ${slideContext.deckId}).`,
       );
+      contextParts.push(
+        "Pass deckId and slideId to generate-image-api so the image is generated at the slide's own canvas aspect ratio.",
+      );
       contextParts.push(`Current slide layout: ${slideContext.slideLayout}`);
       contextParts.push(
         `Current slide content:\n\`\`\`\n${slideContext.slideContent}\n\`\`\``,

@@ -173,21 +173,28 @@ function mapSize(
     if (mapped) return mapped;
   }
 
-  // Map aspect ratio
+  // Map aspect ratio (any ratio shared/image-aspect.ts can emit)
   if (aspectRatio) {
-    if (aspectRatio === "1:1" || aspectRatio === "square") return "1024x1024";
+    if (
+      aspectRatio === "1:1" ||
+      aspectRatio === "square" ||
+      aspectRatio === "5:4"
+    )
+      return "1024x1024";
     if (
       aspectRatio === "16:9" ||
       aspectRatio === "landscape" ||
       aspectRatio === "3:2" ||
-      aspectRatio === "4:3"
+      aspectRatio === "4:3" ||
+      aspectRatio === "21:9"
     )
       return "1536x1024";
     if (
       aspectRatio === "9:16" ||
       aspectRatio === "portrait" ||
       aspectRatio === "2:3" ||
-      aspectRatio === "3:4"
+      aspectRatio === "3:4" ||
+      aspectRatio === "4:5"
     )
       return "1024x1536";
   }

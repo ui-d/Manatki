@@ -38,4 +38,75 @@ describe("GeminiProvider", () => {
     expect(triedModels).not.toContain("gemini-3.1-flash-image-preview");
     expect(triedModels).not.toContain("gemini-3-pro-image-preview");
   });
+
+  it("maps provider config onto imageConfig", async () => {
+    generateContentMock.mockClear();
+    generateContentMock.mockResolvedValue({
+      candidates: [
+        {
+          content: {
+            parts: [
+              { inlineData: { data: "aGVsbG8=", mimeType: "image/png" } },
+            ],
+          },
+        },
+      ],
+    });
+
+    await new GeminiProvider().generate("a red circle", [], undefined, {
+      aspectRatio: "9:16",
+      size: "2K",
+    });
+
+    const request = generateContentMock.mock.calls[0][0];
+    expect(request.config.imageConfig).toEqual({
+      aspectRatio: "9:16",
+      imageSize: "2K",
+    });
+  });
+
+  it("omits imageConfig when no config is supplied", async () => {
+    generateContentMock.mockClear();
+    generateContentMock.mockResolvedValue({
+      candidates: [
+        {
+          content: {
+            parts: [
+              { inlineData: { data: "aGVsbG8=", mimeType: "image/png" } },
+            ],
+          },
+        },
+      ],
+    });
+
+    await new GeminiProvider().generate("a red circle");
+
+    const request = generateContentMock.mock.calls[0][0];
+    expect(request.config.imageConfig).toBeUndefined();
+  });
+
+  it("edit() uses the GA model cascade", async () => {
+    generateContentMock.mockClear();
+    generateContentMock.mockResolvedValue({
+      candidates: [
+        {
+          content: {
+            parts: [
+              { inlineData: { data: "aGVsbG8=", mimeType: "image/png" } },
+            ],
+          },
+        },
+      ],
+    });
+
+    const result = await new GeminiProvider().edit(
+      Buffer.from("img"),
+      "remove background",
+    );
+
+    expect(result.model).toBe("gemini-3.1-flash-image");
+    expect(generateContentMock.mock.calls[0][0].model).toBe(
+      "gemini-3.1-flash-image",
+    );
+  });
 });

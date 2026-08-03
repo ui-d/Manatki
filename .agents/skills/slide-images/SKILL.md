@@ -37,12 +37,26 @@ The standard workflow for generating slide images:
 --slide-content       HTML content of the current slide
 --deck-id             Deck ID to load full deck text as context
 --slide-id            Slide ID within the deck
+--size-preset         Target canvas preset (e.g. ig-story) — see shared/slide-size.ts
+--width / --height    Explicit target canvas in px
+--quality             OpenAI quality hint: low | medium | high
 --reference-image-urls  Comma-separated URLs of extra reference images
 --count               Number of variations (default: 1)
 --output              Output file path prefix
 ```
 
 Default style reference images from `shared/api.ts` are always included.
+
+### Canvas-aware generation
+
+**Always pass the asset's canvas when generating for a social asset**: either
+`--size-preset <id>` / `--width`+`--height`, or just `--deck-id` + `--slide-id`
+(the slide's own `size` is used automatically). The image is generated at the
+nearest provider-supported aspect ratio, so a story asset gets a 9:16 image
+instead of the provider's default landscape. Residual ratio mismatch is
+absorbed by `object-fit: cover` cropping — for extreme strips (`ad-leaderboard`,
+728×90) don't generate full-bleed art at all; use a background texture and let
+the crop land where it may.
 
 ## Logo Lookup
 

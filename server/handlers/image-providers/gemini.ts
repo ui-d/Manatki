@@ -7,6 +7,15 @@ import type {
   ReferenceImage,
 } from "./types.js";
 
+// Google retired the "-preview" aliases (shut down 2026-06-25); the GA model
+// ids dropped the suffix. Sending the old preview ids 404s every call before
+// falling through to gemini-2.5-flash-image.
+const GEMINI_IMAGE_MODELS = [
+  "gemini-3.1-flash-image",
+  "gemini-3-pro-image",
+  "gemini-2.5-flash-image",
+] as const;
+
 export class GeminiProvider implements ImageProvider {
   name = "gemini";
 
@@ -74,18 +83,10 @@ export class GeminiProvider implements ImageProvider {
       imageConfig.aspectRatio = config.aspectRatio;
     }
 
-    // Google retired the "-preview" aliases (shut down 2026-06-25); the GA
-    // model ids dropped the suffix. Sending the old preview ids 404s every
-    // call before falling through to gemini-2.5-flash-image.
-    const geminiModels = [
-      "gemini-3.1-flash-image",
-      "gemini-3-pro-image",
-      "gemini-2.5-flash-image",
-    ];
     let lastError: Error | null = null;
-    let usedModel = geminiModels[0];
+    let usedModel: string = GEMINI_IMAGE_MODELS[0];
 
-    for (const modelName of geminiModels) {
+    for (const modelName of GEMINI_IMAGE_MODELS) {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           if (attempt > 0) {
@@ -145,6 +146,80 @@ export class GeminiProvider implements ImageProvider {
     }
 
     throw lastError || new Error("No image returned from Gemini");
+  }
+
+  async edit(
+    imageData: Buffer,
+    prompt: string,
+    config?: ImageProviderConfig,
+  ): Promise<ImageGenerationResult> {
+    const { GoogleGenAI } = await import("@google/genai");
+    const apiKey = await resolveSecret("GEMINI_API_KEY");
+    if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
+    const client = new GoogleGenAI({ apiKey });
+
+    const contents = [
+      {
+        inlineData: {
+          mimeType: "image/png",
+          data: imageData.toString("base64"),
+        },
+      },
+      {
+        text: `Edit this image with the following changes: ${prompt}
+
+Keep everything else about the image the same - same style, same composition, same elements (except what's being changed). Output the edited image.`,
+      },
+    ];
+
+    const imageConfig: Record<string, string> = {};
+    if (config?.aspectRatio) imageConfig.aspectRatio = config.aspectRatio;
+
+    let lastError: Error | null = null;
+    for (const modelName of GEMINI_IMAGE_MODELS) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) {
+            await new Promise((r) => setTimeout(r, attempt * 3000));
+          }
+          console.log(
+            `[Gemini] Edit with ${modelName} (attempt ${attempt + 1})`,
+          );
+          const generateConfig: Record<string, any> = {
+            responseModalities: ["TEXT", "IMAGE"],
+          };
+          if (Object.keys(imageConfig).length > 0) {
+            generateConfig.imageConfig = imageConfig;
+          }
+          const response = await client.models.generateContent({
+            model: modelName,
+            contents,
+            config: generateConfig,
+          });
+          const parts = response.candidates?.[0]?.content?.parts ?? [];
+          for (const part of parts) {
+            if (part.inlineData) {
+              return {
+                imageData: Buffer.from(part.inlineData.data!, "base64"),
+                mimeType: part.inlineData.mimeType || "image/png",
+                model: modelName,
+                provider: "gemini",
+              };
+            }
+          }
+          lastError = new Error(`No image returned from ${modelName}`);
+          break;
+        } catch (e: any) {
+          console.warn(
+            `[Gemini] ${modelName} edit attempt ${attempt + 1} failed: ${e.message}`,
+          );
+          lastError = e;
+          if (isOverloadError(e)) continue;
+          break;
+        }
+      }
+    }
+    throw lastError || new Error("No image returned from Gemini edit");
   }
 }
 

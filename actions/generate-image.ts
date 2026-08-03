@@ -12,12 +12,19 @@
  *   --slide-content       HTML content of the current slide (primary context)
  *   --deck-id             Deck ID to load full deck text as secondary context
  *   --slide-id            Slide ID within the deck (used with --deck-id to highlight current slide)
+ *   --size-preset         Target canvas preset (e.g. ig-story) — generates at
+ *                         the nearest provider-supported aspect ratio
+ *   --width / --height    Explicit target canvas in px (alternative to preset)
+ *   --quality             OpenAI quality hint: low | medium | high
  *   --model               Provider: 'gemini', 'openai', or 'auto' (default: auto)
  *   --reference-image-urls  Comma-separated URLs of extra reference images
  *   --count               Number of variations to generate (default: 1)
  *   --output              Output file path prefix (e.g. public/assets/generated/slide21)
  *                         Files will be named {prefix}-v1.png, {prefix}-v2.png, etc.
  *   --help                Show this help
+ *
+ * Target canvas resolution order: --size-preset / --width+--height → the
+ * slide's own size (via --deck-id + --slide-id) → provider default.
  */
 
 const config = async () => {
@@ -33,6 +40,16 @@ import { isBlockedExtensionUrlWithDns } from "@agent-native/core/extensions/url-
 import pLimit from "p-limit";
 
 import { DEFAULT_STYLE_REFERENCE_URLS } from "../shared/api.js";
+import {
+  cropGuidanceLine,
+  planImageAspect,
+  type ImageAspectPlan,
+} from "../shared/image-aspect.js";
+import {
+  getPresetSize,
+  getSlideDims,
+  isValidSlideDims,
+} from "../shared/slide-size.js";
 
 function parseArgs(args: string[]): Record<string, string> {
   const result: Record<string, string> = {};
@@ -63,40 +80,61 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-/** Load a deck JSON and extract text context */
-function loadDeckContext(
+interface DeckContextResult {
+  slideContent?: string;
+  deckText: string;
+  /** Canvas of the targeted slide, when --slide-id matched one. */
+  slideDims?: { width: number; height: number };
+}
+
+/** Load a deck (DB first, legacy data/decks file fallback) → text context. */
+async function loadDeckContext(
   deckId: string,
   slideId?: string,
-): { slideContent?: string; deckText: string } {
-  // Try to find the deck file
-  const deckPath = join("data", "decks", `${deckId}.json`);
+): Promise<DeckContextResult> {
+  let deck: any = null;
   try {
-    const raw = readFileSync(deckPath, "utf-8");
-    const deck = JSON.parse(raw);
-    const slides = deck.slides || [];
-
-    let slideContent: string | undefined;
-    const textParts: string[] = [`Deck: ${deck.title || deckId}`];
-
-    for (const slide of slides) {
-      const text = stripHtml(slide.content || "");
-      const isCurrent = slideId && slide.id === slideId;
-      if (isCurrent) {
-        slideContent = slide.content;
-        textParts.push(`[CURRENT SLIDE ${slide.id}]: ${text}`);
-      } else {
-        textParts.push(`Slide ${slide.id}: ${text}`);
-      }
-    }
-
-    return {
-      slideContent,
-      deckText: textParts.join("\n"),
-    };
+    const { getDb, schema } = await import("../server/db/index.js");
+    const { eq } = await import("drizzle-orm");
+    const [row] = await getDb()
+      .select({ data: schema.decks.data })
+      .from(schema.decks)
+      .where(eq(schema.decks.id, deckId))
+      .limit(1);
+    if (row) deck = JSON.parse(row.data);
   } catch (err: any) {
-    console.warn(`Could not load deck ${deckId}: ${err.message}`);
-    return { deckText: "" };
+    console.warn(`DB deck lookup failed for ${deckId}: ${err.message}`);
   }
+  if (!deck) {
+    // Legacy fallback for local file-store decks.
+    try {
+      deck = JSON.parse(
+        readFileSync(join("data", "decks", `${deckId}.json`), "utf-8"),
+      );
+    } catch (err: any) {
+      console.warn(`Could not load deck ${deckId}: ${err.message}`);
+      return { deckText: "" };
+    }
+  }
+
+  const slides = deck.slides || [];
+  let slideContent: string | undefined;
+  let slideDims: { width: number; height: number } | undefined;
+  const textParts: string[] = [`Deck: ${deck.title || deckId}`];
+
+  for (const slide of slides) {
+    const text = stripHtml(slide.content || "");
+    const isCurrent = slideId && slide.id === slideId;
+    if (isCurrent) {
+      slideContent = slide.content;
+      slideDims = getSlideDims(slide, deck.aspectRatio);
+      textParts.push(`[CURRENT SLIDE ${slide.id}]: ${text}`);
+    } else {
+      textParts.push(`Slide ${slide.id}: ${text}`);
+    }
+  }
+
+  return { slideContent, deckText: textParts.join("\n"), slideDims };
 }
 
 export default async function main(args: string[]) {
@@ -112,6 +150,9 @@ Options:
   --slide-content         HTML content of the current slide (primary context)
   --deck-id               Deck ID to load full deck text as secondary context
   --slide-id              Slide ID within the deck (highlights current slide)
+  --size-preset           Target canvas preset id (e.g. ig-story)
+  --width / --height      Explicit target canvas in px
+  --quality               OpenAI quality hint: low | medium | high
   --model                 Provider: 'gemini', 'openai', or 'auto' (default: auto)
   --reference-image-urls  Comma-separated URLs of extra reference images
   --count                 Number of variations (default: 1)
@@ -124,6 +165,57 @@ Options:
   if (!prompt) {
     console.error("Error: --prompt is required");
     throw new Error("Script failed");
+  }
+
+  // ── Target canvas resolution ────────────────────────────────────────────
+  // Explicit --size-preset / --width+--height beat the slide's own size
+  // (derived below from --deck-id/--slide-id). Without any of these the
+  // provider default applies, as before.
+  let targetDims: { width: number; height: number } | null = null;
+  if (opts["size-preset"]) {
+    const preset = getPresetSize(opts["size-preset"]);
+    if (!preset) {
+      console.error(
+        `Error: unknown --size-preset "${opts["size-preset"]}". See shared/slide-size.ts for valid ids.`,
+      );
+      throw new Error("Script failed");
+    }
+    targetDims = { width: preset.width, height: preset.height };
+  } else if (opts["width"] || opts["height"]) {
+    const width = parseInt(opts["width"] || "", 10);
+    const height = parseInt(opts["height"] || "", 10);
+    if (!isValidSlideDims(width, height)) {
+      console.error(
+        "Error: --width/--height must both be integers within canvas bounds",
+      );
+      throw new Error("Script failed");
+    }
+    targetDims = { width, height };
+  }
+
+  // Deck context is loaded up front so both the A2A path and the direct
+  // provider path see the slide's content and canvas.
+  let slideContent = opts["slide-content"];
+  let deckText = "";
+  if (opts["deck-id"]) {
+    const deckCtx = await loadDeckContext(opts["deck-id"], opts["slide-id"]);
+    if (!slideContent && deckCtx.slideContent) {
+      slideContent = deckCtx.slideContent;
+    }
+    deckText = deckCtx.deckText;
+    if (deckText) console.log(`Loaded deck context: ${deckText.length} chars`);
+    if (!targetDims && deckCtx.slideDims) {
+      targetDims = deckCtx.slideDims;
+    }
+  }
+
+  const aspectPlan: ImageAspectPlan | null = targetDims
+    ? planImageAspect(targetDims.width, targetDims.height)
+    : null;
+  if (targetDims && aspectPlan) {
+    console.log(
+      `Target canvas: ${targetDims.width}×${targetDims.height} → aspect ${aspectPlan.aspectRatio}, size ${aspectPlan.imageSize}`,
+    );
   }
 
   // ── A2A delegation to the Images app ────────────────────────────────────
@@ -154,16 +246,20 @@ Options:
       const slideHints: string[] = [];
       if (opts["deck-id"]) slideHints.push(`deckId: ${opts["deck-id"]}`);
       if (opts["slide-id"]) slideHints.push(`slideId: ${opts["slide-id"]}`);
-      if (opts["slide-content"]) {
+      if (slideContent) {
         slideHints.push(
-          `slideContent: ${stripHtml(opts["slide-content"]).slice(0, 280)}`,
+          `slideContent: ${stripHtml(slideContent).slice(0, 280)}`,
         );
       }
+      const aspectLine =
+        aspectPlan && targetDims
+          ? `Aspect ratio: ${aspectPlan.aspectRatio} (target canvas ${targetDims.width}×${targetDims.height}px)`
+          : "Aspect ratio: 16:9";
       const message =
         `Generate ${opts["count"] ?? "1"} brand-consistent image candidate(s) ` +
         `for an agent-native slides deck.\n\n` +
         `Prompt: ${prompt}\n` +
-        `Aspect ratio: 16:9\n` +
+        `${aspectLine}\n` +
         (slideHints.length ? `Slide context: ${slideHints.join(", ")}\n` : "") +
         `\nPick the best matching library via match-library if no libraryId is ` +
         `obvious. Return previewUrl + downloadUrl in the response so the slides ` +
@@ -206,21 +302,31 @@ Options:
     ? opts["reference-image-urls"].split(",").map((u) => u.trim())
     : [];
 
-  // Build context from slide content and/or deck
-  let slideContent = opts["slide-content"];
-  let deckText = "";
-
-  if (opts["deck-id"]) {
-    const deckCtx = loadDeckContext(opts["deck-id"], opts["slide-id"]);
-    if (!slideContent && deckCtx.slideContent) {
-      slideContent = deckCtx.slideContent;
-    }
-    deckText = deckCtx.deckText;
-    console.log(`Loaded deck context: ${deckCtx.deckText.length} chars`);
-  }
-
   const context =
     slideContent || deckText ? { slideContent, deckText } : undefined;
+
+  // Provider config from the resolved canvas. Gemini reads aspectRatio +
+  // size tier; OpenAI maps aspectRatio onto its three output sizes.
+  const providerConfig =
+    aspectPlan || opts["quality"]
+      ? {
+          aspectRatio: aspectPlan?.aspectRatio,
+          size: aspectPlan?.imageSize,
+          quality: opts["quality"],
+        }
+      : undefined;
+
+  // When the provider's snapped output visibly deviates from the target
+  // canvas, steer the composition so cover-fit cropping stays safe.
+  let effectivePrompt = prompt;
+  if (aspectPlan) {
+    const guidance = cropGuidanceLine(
+      provider.name === "openai"
+        ? Math.max(aspectPlan.mismatch, aspectPlan.openaiMismatch)
+        : aspectPlan.mismatch,
+    );
+    if (guidance) effectivePrompt = `${prompt}\n\n${guidance}`;
+  }
 
   // Always include default style references + any extra ones
   const referenceUrls = [
@@ -297,7 +403,12 @@ Options:
     Array.from({ length: count }, (_, i) =>
       genLimit(async () => {
         console.log(`\nGenerating variation ${i + 1}/${count}...`);
-        const result = await provider.generate(prompt, refImages, context);
+        const result = await provider.generate(
+          effectivePrompt,
+          refImages,
+          context,
+          providerConfig,
+        );
         return { i, result };
       }),
     ),
