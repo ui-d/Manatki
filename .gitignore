@@ -56,3 +56,6 @@ data/uploads-public/
 test-results/
 playwright-report/
 public/landing/raw/
+
+# Vitest coverage output
+coverage/
