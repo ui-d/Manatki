@@ -188,6 +188,81 @@ export function insertImageIntoSlideHtml(
   return serializeFragment(doc);
 }
 
+const BG_IMAGE_STYLE =
+  "position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1;";
+const BG_SCRIM_STYLE =
+  "position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,0.55) 100%); z-index: -1; pointer-events: none;";
+
+function looksLikeBackgroundImage(img: HTMLImageElement): boolean {
+  if (img.classList.contains("fmd-bg-image")) return true;
+  const style = img.getAttribute("style") ?? "";
+  return (
+    /position\s*:\s*absolute/i.test(style) &&
+    /inset\s*:\s*0/i.test(style) &&
+    /z-index\s*:\s*-1/i.test(style)
+  );
+}
+
+function ensureRelativePosition(slideRoot: HTMLElement | null): void {
+  if (
+    slideRoot &&
+    !/(?:^|;)\s*position\s*:/i.test(slideRoot.getAttribute("style") ?? "")
+  ) {
+    slideRoot.setAttribute(
+      "style",
+      `${(slideRoot.getAttribute("style") ?? "").trim().replace(/;+\s*$/, "")}; position: relative;`.replace(
+        /^;\s*/,
+        "",
+      ),
+    );
+  }
+}
+
+/**
+ * Set (or swap) a full-bleed cover background image on the slide. Unlike
+ * `insertImageIntoSlideHtml`, this always backgrounds — placeholders are left
+ * untouched. With `scrim: true` a bottom gradient overlay is added so HTML
+ * copy stays legible over the imagery (skip for image-only assets).
+ */
+export function setSlideBackgroundImage(
+  content: string,
+  newSrc: string,
+  options: ReplaceOptions & { scrim?: boolean } = {},
+): string {
+  const doc = parseFragment(content);
+  const slideRoot = doc.body.querySelector<HTMLElement>(".fmd-slide");
+  const root = slideRoot || doc.body;
+
+  const existing = Array.from(
+    root.querySelectorAll<HTMLImageElement>("img"),
+  ).find(looksLikeBackgroundImage);
+
+  let img: HTMLImageElement;
+  if (existing) {
+    existing.setAttribute("src", newSrc);
+    if (options.alt) existing.setAttribute("alt", cleanAlt(options.alt));
+    img = existing;
+  } else {
+    img = doc.createElement("img");
+    img.setAttribute("src", newSrc);
+    img.setAttribute("alt", cleanAlt(options.alt));
+    img.className = "fmd-img-uploaded fmd-bg-image";
+    img.setAttribute("style", BG_IMAGE_STYLE);
+    root.insertBefore(img, root.firstChild);
+  }
+
+  if (options.scrim && !root.querySelector(".fmd-bg-scrim")) {
+    const scrim = doc.createElement("div");
+    scrim.className = "fmd-bg-scrim";
+    scrim.setAttribute("style", BG_SCRIM_STYLE);
+    // Same z-index as the image; later sibling paints above it.
+    img.after(scrim);
+  }
+
+  ensureRelativePosition(slideRoot);
+  return serializeFragment(doc);
+}
+
 export function replaceImageTargetInSlideHtml(
   content: string,
   oldSrc: string,

@@ -40,6 +40,16 @@ The standard workflow for generating slide images:
 --size-preset         Target canvas preset (e.g. ig-story) — see shared/slide-size.ts
 --width / --height    Explicit target canvas in px
 --quality             OpenAI quality hint: low | medium | high
+--mode                asset (default) | poster — poster generates FULL-CANVAS
+                      artwork that IS the finished background (use for
+                      full-visual social assets)
+--overlay-zone        Poster-only: bottom | top | center | none — the zone
+                      where HTML copy will overlay is kept visually calm
+--allow-text-in-image Opt-in: render the prompt's exact text inside the image.
+                      Only when the user explicitly asks for text in the
+                      artwork; warn that it won't be editable or lintable
+--design-system-id    Ground style in this design system (default: the deck's
+                      linked system, then the workspace default)
 --reference-image-urls  Comma-separated URLs of extra reference images
 --count               Number of variations (default: 1)
 --output              Output file path prefix
@@ -57,6 +67,35 @@ instead of the provider's default landscape. Residual ratio mismatch is
 absorbed by `object-fit: cover` cropping — for extreme strips (`ad-leaderboard`,
 728×90) don't generate full-bleed art at all; use a background texture and let
 the crop land where it may.
+
+### Brand grounding
+
+Generation is grounded in the deck's linked design system automatically
+(palette, typography feel, imagery style description, brand reference
+images). Pass `--design-system-id` to override, and prefer the Images-app
+A2A path when configured — it grounds in the full brand library.
+
+## Backgrounds (full-bleed cover image)
+
+To set an image as a slide's full-bleed background — the editor's
+"Set as background" button and the poster workflow both use this shape —
+insert it as the FIRST child of `.fmd-slide` (which needs
+`position: relative`):
+
+```html
+<img class="fmd-img-uploaded fmd-bg-image" src="[HOSTED URL]" alt="[ALT]"
+     style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1;">
+```
+
+If text overlays the imagery, add a scrim right after the image:
+
+```html
+<div class="fmd-bg-scrim" style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,0.55) 100%); z-index: -1; pointer-events: none;"></div>
+```
+
+Swap `src` on the existing `.fmd-bg-image` instead of stacking a second
+background layer. For full-visual social assets see the "full-visual"
+section of `create-social-assets`.
 
 ## Logo Lookup
 

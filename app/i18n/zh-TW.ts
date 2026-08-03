@@ -102,6 +102,8 @@ const messages = {
     imagePromptPlaceholder:
       "例如：作為標題投影片的主視覺。或：替換第 3 張投影片的人像照片。",
     imageSearchTitle: "搜尋圖片",
+    setAsBackground: "設為背景",
+    useAsBackground: "用作整幅背景",
     searchImagesPlaceholder: "搜尋圖片...",
     searchForLogosImagesIcons: "搜尋徽標、圖片、圖示...",
     search: "搜尋",

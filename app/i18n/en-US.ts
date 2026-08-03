@@ -128,6 +128,8 @@ const messages = {
     imagePromptPlaceholder:
       "e.g. Use as the title-slide hero. Or: replace the headshot on slide 3.",
     imageSearchTitle: "Search Images",
+    setAsBackground: "Set as background",
+    useAsBackground: "Use as full background",
     searchImagesPlaceholder: "Search for images...",
     searchForLogosImagesIcons: "Search for logos, images, icons...",
     search: "Search",

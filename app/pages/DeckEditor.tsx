@@ -80,6 +80,7 @@ import { imageFileLooksSupported } from "@/lib/slide-image-replacement";
 import {
   insertImageIntoSlideHtml,
   replaceImageTargetInSlideHtml,
+  setSlideBackgroundImage,
 } from "@/lib/slide-image-replacement";
 import { getSlideDims, isUniformSize } from "@/lib/slide-size";
 import { TAB_ID } from "@/lib/tab-id";
@@ -455,6 +456,21 @@ export default function DeckEditor() {
         newSrc,
         { alt },
       );
+      if (updatedContent !== slide.content) {
+        updateSlide(id, slide.id, { content: updatedContent });
+      }
+    },
+    [id, updateSlide],
+  );
+
+  // Set an image as the current slide's full-bleed cover background.
+  const setBackgroundImageInSlide = useCallback(
+    (newSrc: string, alt?: string) => {
+      if (!id || !currentSlideRef.current) return;
+      const slide = currentSlideRef.current;
+      const updatedContent = setSlideBackgroundImage(slide.content, newSrc, {
+        alt,
+      });
       if (updatedContent !== slide.content) {
         updateSlide(id, slide.id, { content: updatedContent });
       }
@@ -1371,6 +1387,14 @@ export default function DeckEditor() {
           replaceImageSrc
             ? (newUrl) => {
                 replaceImageInSlide(replaceImageSrc, newUrl);
+                setReplaceImageSrc(null);
+              }
+            : undefined
+        }
+        onSetBackground={
+          canEdit
+            ? (newUrl) => {
+                setBackgroundImageInSlide(newUrl);
                 setReplaceImageSrc(null);
               }
             : undefined

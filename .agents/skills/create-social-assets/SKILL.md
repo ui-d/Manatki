@@ -218,6 +218,54 @@ vertically like this; `ad-mrec` (300×250) drops the supporting line;
 </div>
 ```
 
+### full-visual — any preset (poster treatment)
+
+An image-led asset where AI-generated artwork fills the whole canvas and the
+copy is overlaid as HTML. Not a sixth archetype — a treatment that applies to
+any preset except the micro/leaderboard family (tiny canvases crop
+unpredictably; give those a background texture at most).
+
+Workflow:
+
+1. Generate the artwork FIRST, at the asset's canvas, in poster mode:
+   `pnpm action generate-image --mode poster --size-preset <preset> --deck-id
+   <id> --slide-id <id> --overlay-zone bottom --count 2` (or via the Images
+   app per `image-generation-via-a2a`). Poster mode produces edge-to-edge
+   full-canvas artwork; `--overlay-zone` keeps the zone where your copy will
+   sit visually calm. The linked design system grounds palette and imagery
+   style automatically.
+2. Pick the best candidate, get its hosted URL.
+3. Compose the HTML: full-bleed cover image + gradient scrim + absolutely
+   positioned copy block. **The scrim is mandatory whenever copy overlays
+   imagery** — never put text straight onto a photo.
+4. Keep the copy overlay position aligned with the `--overlay-zone` you
+   requested. For `ig-story`, the copy block must also sit inside the safe
+   band (top 220px / bottom 280px are platform UI).
+
+Template (portrait/square — copy bottom; for strips move the copy to the
+left with a left-edge scrim; for squares center is also fine):
+
+```html
+<div class="fmd-slide" style="position: relative; font-family: 'Poppins', sans-serif;">
+  <img class="fmd-img-uploaded fmd-bg-image" src="[HOSTED URL]" alt="[ALT]" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1;">
+  <div class="fmd-bg-scrim" style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,0.55) 100%); z-index: -1; pointer-events: none;"></div>
+  <div style="position: absolute; left: 90px; right: 90px; bottom: 90px; display: flex; flex-direction: column; gap: 24px;">
+    <div style="font-size: 26px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; color: #00E5FF;">[LABEL]</div>
+    <h1 style="font-size: 96px; font-weight: 900; color: #fff; line-height: 1.05; letter-spacing: -3px; margin: 0;">[HEADLINE]</h1>
+    <span style="align-self: flex-start; padding: 20px 44px; border-radius: 999px; background: #00E5FF; color: #000; font-size: 32px; font-weight: 800;">[CTA]</span>
+  </div>
+</div>
+```
+
+For `ig-story`, change the copy block's `bottom` to at least `320px` so it
+clears the reply box.
+
+Text stays in HTML, not in the artwork: HTML copy is editable, localizable,
+and visible to `lint-deck-brand` and the fit-check loop. Only when the user
+explicitly asks for text rendered inside the artwork (photographic quote,
+typographic art) pass `--allow-text-in-image` — and warn them the result
+won't be editable or brand-lintable.
+
 ## Campaigns — one brief, several formats
 
 For "make a campaign for X":
@@ -231,7 +279,10 @@ For "make a campaign for X":
    image, strip collapses to one row, micro compresses to headline + CTA.
 4. Generate imagery once (see `slide-images` /
    `image-generation-via-a2a`) and reuse the same image or style reference
-   across formats for cohesion.
+   across formats for cohesion. Exception — image-led (full-visual)
+   campaigns: generate one poster per format at that format's canvas
+   (`--mode poster --size-preset <preset>`); one 1:1 render stretched across
+   9:16 and 21:9 crops badly.
 5. Finish by delivering the PNGs: call `export-asset-images` with the
    project's `deckId` (optionally `slideIds` for a subset) — it renders each
    asset in the user's open editor tab, uploads the PNGs, and returns hosted

@@ -20,12 +20,15 @@ interface ImageSearchPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectImage?: (url: string) => void;
+  /** Set the picked image as the current slide's full-bleed background. */
+  onSetBackground?: (url: string) => void;
 }
 
 export default function ImageSearchPanel({
   open,
   onOpenChange,
   onSelectImage,
+  onSetBackground,
 }: ImageSearchPanelProps) {
   const t = useT();
   const [query, setQuery] = useState("");
@@ -77,7 +80,15 @@ export default function ImageSearchPanel({
   };
 
   const handleSelect = (url: string) => {
-    onSelectImage?.(url);
+    // Primary click inserts when a target exists; otherwise the only
+    // available placement is the background.
+    if (onSelectImage) onSelectImage(url);
+    else onSetBackground?.(url);
+    onOpenChange(false);
+  };
+
+  const handleSetBackground = (url: string) => {
+    onSetBackground?.(url);
     onOpenChange(false);
   };
 
@@ -159,17 +170,31 @@ export default function ImageSearchPanel({
             {results.map((result, i) => (
               <Tooltip key={i}>
                 <TooltipTrigger asChild>
-                  <button
-                    onClick={() => handleSelect(result.url)}
-                    className="aspect-square rounded-md overflow-hidden border border-border bg-muted hover:ring-2 hover:ring-[#609FF8]/50 transition-all"
-                  >
-                    <img
-                      src={result.thumbnail}
-                      alt={result.title}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  </button>
+                  <div className="relative group aspect-square rounded-md overflow-hidden border border-border bg-muted hover:ring-2 hover:ring-[#609FF8]/50 transition-all">
+                    <button
+                      onClick={() => handleSelect(result.url)}
+                      className="w-full h-full"
+                      aria-label={result.title}
+                    >
+                      <img
+                        src={result.thumbnail}
+                        alt={result.title}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </button>
+                    {onSetBackground && onSelectImage && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSetBackground(result.url);
+                        }}
+                        className="absolute inset-x-0 bottom-0 bg-black/70 text-white text-[10px] py-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                      >
+                        {t("raw.setAsBackground")}
+                      </button>
+                    )}
+                  </div>
                 </TooltipTrigger>
                 <TooltipContent>{result.title}</TooltipContent>
               </Tooltip>

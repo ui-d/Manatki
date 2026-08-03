@@ -107,6 +107,8 @@ const messages = {
     imagePromptPlaceholder:
       "ex.: Usar como hero do slide de título. Ou: substituir a foto no slide 3.",
     imageSearchTitle: "Buscar imagens",
+    setAsBackground: "Definir como plano de fundo",
+    useAsBackground: "Usar como plano de fundo inteiro",
     searchImagesPlaceholder: "Buscar imagens...",
     searchForLogosImagesIcons: "Buscar logos, imagens, ícones...",
     search: "Buscar",

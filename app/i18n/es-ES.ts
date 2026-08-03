@@ -108,6 +108,8 @@ const messages = {
     imagePromptPlaceholder:
       "p. ej. Úsala como hero de la diapositiva de título. O: reemplaza el retrato de la diapositiva 3.",
     imageSearchTitle: "Buscar imágenes",
+    setAsBackground: "Establecer como fondo",
+    useAsBackground: "Usar como fondo completo",
     searchImagesPlaceholder: "Buscar imágenes...",
     searchForLogosImagesIcons: "Buscar logos, imágenes, iconos...",
     search: "Buscar",

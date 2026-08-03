@@ -109,6 +109,8 @@ const messages = {
     imagePromptPlaceholder:
       "z. B. als Hero für die Titelfolie verwenden. Oder: das Porträt auf Folie 3 ersetzen.",
     imageSearchTitle: "Bilder suchen",
+    setAsBackground: "Als Hintergrund festlegen",
+    useAsBackground: "Als vollflächigen Hintergrund verwenden",
     searchImagesPlaceholder: "Nach Bildern suchen...",
     searchForLogosImagesIcons: "Nach Logos, Bildern, Icons suchen...",
     search: "Suchen",

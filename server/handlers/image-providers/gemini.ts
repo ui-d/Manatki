@@ -58,8 +58,10 @@ export class GeminiProvider implements ImageProvider {
 
     if (referenceImages.length > 0) {
       contents.push({
-        text: buildStylePrompt(prompt, selectedRefs.length, context),
+        text: buildStylePrompt(prompt, selectedRefs.length, context, config),
       });
+    } else if (config?.mode === "poster" || config?.brandStyle) {
+      contents.push({ text: buildBarePrompt(prompt, context, config) });
     } else {
       contents.push({ text: prompt });
     }
@@ -259,10 +261,40 @@ function cappedContext(label: string, value?: string): string {
   return `\n\n${label} (topic/style context only; do not render these words): ${capped}`;
 }
 
+/** The OUTPUT FORMAT block switches on generation mode — keep the branches
+ * separate so poster tuning can never regress asset-mode output. */
+function outputFormatBlock(config?: ImageProviderConfig): string {
+  if (config?.mode === "poster") {
+    let block =
+      "OUTPUT FORMAT: Generate a complete FULL-CANVAS visual composition that fills the entire frame edge-to-edge — this IS the finished background artwork for the asset, not an element placed into a layout. No slide frame, no presentation border, no mockup chrome around it.";
+    if (config.overlayZone && config.overlayZone !== "none") {
+      block += ` Keep the ${config.overlayZone} third of the frame visually calm (low detail, low contrast) — headline text will be overlaid there as HTML.`;
+    }
+    if (config.canvasNotes) {
+      block += ` ${config.canvasNotes}`;
+    }
+    return block;
+  }
+  return "OUTPUT FORMAT: Generate ONLY the illustration/graphic itself — NOT a slide mockup. Do NOT include any slide frame, presentation border, title text overlay, or slide layout. Just the raw image asset that will be placed INTO a slide.";
+}
+
+function textRule(config?: ImageProviderConfig): string {
+  if (config?.allowTextInImage) {
+    return "- **Render requested text verbatim**: The prompt includes exact text to render inside the image. Spell it exactly as given, letter for letter. Render no other words.";
+  }
+  return "- **No visible text by default**: Do NOT render words, letters, UI labels, captions, specs, prompt text, or slide copy unless the user's prompt explicitly asks for exact text in the image.";
+}
+
+function brandStyleBlock(config?: ImageProviderConfig): string {
+  if (!config?.brandStyle) return "";
+  return `\n\n${config.brandStyle}`;
+}
+
 function buildStylePrompt(
   prompt: string,
   refCount: number,
   context?: { slideContent?: string; deckText?: string },
+  config?: ImageProviderConfig,
 ): string {
   return `You are a world-class visual designer creating assets in a specific visual system. Study the ${refCount} reference images above; they define the target style. Your output must feel indistinguishable from these references.
 
@@ -272,12 +304,29 @@ CRITICAL STYLE RULES (extract these from the references):
 - **Same composition style**: Match the spacing, alignment, element sizing, and visual hierarchy from the references.
 - **Same visual effects**: Match the exact border styles, shadow depths, corner radii, and transparency levels.
 - **NO GLOW**: Do NOT add glow effects, bloom, neon, light halos, or luminous auras. Keep all lighting flat and subtle. No glowing edges, no light emanating from elements, no soft light blooms.
-- **No visible text by default**: Do NOT render words, letters, UI labels, captions, specs, prompt text, or slide copy unless the user's prompt explicitly asks for exact text in the image.
+${textRule(config)}
 - **Same level of detail**: Don't add more detail or complexity than the references show. Match their level of abstraction.
 
-OUTPUT FORMAT: Generate ONLY the illustration/graphic itself — NOT a slide mockup. Do NOT include any slide frame, presentation border, title text overlay, or slide layout. Just the raw image asset that will be placed INTO a slide.
+${outputFormatBlock(config)}${brandStyleBlock(config)}
 
 STYLE MATCH IS THE #1 PRIORITY. If depicting the subject conflicts with matching the style, ALWAYS choose style over subject accuracy.
+
+Subject to depict: ${prompt}
+
+The following context is non-renderable background for topic/style only. Do not copy or display any of this text, HTML, labels, specs, or prompt wording inside the image.${cappedContext("Current slide", context?.slideContent)}${cappedContext("Deck", context?.deckText)}`;
+}
+
+/** Poster/brand prompt for the no-reference-images path. */
+function buildBarePrompt(
+  prompt: string,
+  context?: { slideContent?: string; deckText?: string },
+  config?: ImageProviderConfig,
+): string {
+  return `You are a world-class visual designer.
+
+${textRule(config).replace(/^- /, "")}
+
+${outputFormatBlock(config)}${brandStyleBlock(config)}
 
 Subject to depict: ${prompt}
 

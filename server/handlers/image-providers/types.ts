@@ -3,6 +3,23 @@ export interface ImageProviderConfig {
   size?: string;
   quality?: string;
   outputFormat?: string;
+  /**
+   * "asset" (default): an illustration/graphic placed INTO a slide layout.
+   * "poster": a full-canvas composition that IS the finished background
+   * artwork for the asset — lifts the anti-mockup output restriction.
+   */
+  mode?: "asset" | "poster";
+  /** Poster-only: zone where HTML copy will be overlaid — keep it calm. */
+  overlayZone?: "bottom" | "top" | "center" | "none";
+  /**
+   * Opt-in: allow the model to render the prompt's exact text in the image.
+   * Off by default — HTML overlay copy stays editable, lintable, localizable.
+   */
+  allowTextInImage?: boolean;
+  /** Extra canvas guidance (e.g. story safe areas), appended verbatim. */
+  canvasNotes?: string;
+  /** Brand palette/typography/imagery block from the linked design system. */
+  brandStyle?: string;
 }
 
 export interface ImageGenerationResult {

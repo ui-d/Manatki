@@ -16,6 +16,14 @@
  *                         the nearest provider-supported aspect ratio
  *   --width / --height    Explicit target canvas in px (alternative to preset)
  *   --quality             OpenAI quality hint: low | medium | high
+ *   --mode                asset (default) | poster. Poster = full-canvas
+ *                         artwork that IS the finished asset background
+ *   --overlay-zone        Poster-only: bottom | top | center | none — keep
+ *                         that zone calm for the HTML copy overlay
+ *   --allow-text-in-image Opt-in: render the prompt's exact text in the image
+ *                         (not editable/lintable afterwards — avoid by default)
+ *   --design-system-id    Ground style in this design system (default: the
+ *                         deck's linked system, then the workspace default)
  *   --model               Provider: 'gemini', 'openai', or 'auto' (default: auto)
  *   --reference-image-urls  Comma-separated URLs of extra reference images
  *   --count               Number of variations to generate (default: 1)
@@ -40,9 +48,11 @@ import { isBlockedExtensionUrlWithDns } from "@agent-native/core/extensions/url-
 import pLimit from "p-limit";
 
 import { DEFAULT_STYLE_REFERENCE_URLS } from "../shared/api.js";
+import { loadBrandGrounding } from "./_brand-grounding.js";
 import {
   cropGuidanceLine,
   planImageAspect,
+  safeAreaPromptNote,
   type ImageAspectPlan,
 } from "../shared/image-aspect.js";
 import {
@@ -80,11 +90,18 @@ function stripHtml(html: string): string {
     .trim();
 }
 
+interface TargetCanvas {
+  width: number;
+  height: number;
+  /** Preset id when known — unlocks safe-area guidance for e.g. ig-story. */
+  preset?: string;
+}
+
 interface DeckContextResult {
   slideContent?: string;
   deckText: string;
   /** Canvas of the targeted slide, when --slide-id matched one. */
-  slideDims?: { width: number; height: number };
+  slideDims?: TargetCanvas;
 }
 
 /** Load a deck (DB first, legacy data/decks file fallback) → text context. */
@@ -119,7 +136,7 @@ async function loadDeckContext(
 
   const slides = deck.slides || [];
   let slideContent: string | undefined;
-  let slideDims: { width: number; height: number } | undefined;
+  let slideDims: TargetCanvas | undefined;
   const textParts: string[] = [`Deck: ${deck.title || deckId}`];
 
   for (const slide of slides) {
@@ -127,7 +144,11 @@ async function loadDeckContext(
     const isCurrent = slideId && slide.id === slideId;
     if (isCurrent) {
       slideContent = slide.content;
-      slideDims = getSlideDims(slide, deck.aspectRatio);
+      slideDims = {
+        ...getSlideDims(slide, deck.aspectRatio),
+        preset:
+          typeof slide.size?.preset === "string" ? slide.size.preset : undefined,
+      };
       textParts.push(`[CURRENT SLIDE ${slide.id}]: ${text}`);
     } else {
       textParts.push(`Slide ${slide.id}: ${text}`);
@@ -153,6 +174,10 @@ Options:
   --size-preset           Target canvas preset id (e.g. ig-story)
   --width / --height      Explicit target canvas in px
   --quality               OpenAI quality hint: low | medium | high
+  --mode                  asset (default) | poster (full-canvas artwork)
+  --overlay-zone          Poster-only: bottom | top | center | none
+  --allow-text-in-image   Opt-in: render exact prompt text in the image
+  --design-system-id      Ground style in this design system
   --model                 Provider: 'gemini', 'openai', or 'auto' (default: auto)
   --reference-image-urls  Comma-separated URLs of extra reference images
   --count                 Number of variations (default: 1)
@@ -171,7 +196,7 @@ Options:
   // Explicit --size-preset / --width+--height beat the slide's own size
   // (derived below from --deck-id/--slide-id). Without any of these the
   // provider default applies, as before.
-  let targetDims: { width: number; height: number } | null = null;
+  let targetDims: TargetCanvas | null = null;
   if (opts["size-preset"]) {
     const preset = getPresetSize(opts["size-preset"]);
     if (!preset) {
@@ -180,7 +205,11 @@ Options:
       );
       throw new Error("Script failed");
     }
-    targetDims = { width: preset.width, height: preset.height };
+    targetDims = {
+      width: preset.width,
+      height: preset.height,
+      preset: opts["size-preset"],
+    };
   } else if (opts["width"] || opts["height"]) {
     const width = parseInt(opts["width"] || "", 10);
     const height = parseInt(opts["height"] || "", 10);
@@ -305,16 +334,46 @@ Options:
   const context =
     slideContent || deckText ? { slideContent, deckText } : undefined;
 
+  // Brand grounding for the direct path: the linked/explicit/default design
+  // system contributes a style block + reference image URLs (best-effort).
+  const brand = await loadBrandGrounding({
+    designSystemId: opts["design-system-id"],
+    deckId: opts["deck-id"],
+  });
+  if (brand) {
+    console.log(
+      `Brand grounding: design system ${brand.designSystemId} (${brand.referenceImageUrls.length} reference image(s))`,
+    );
+  }
+
+  const mode = opts["mode"] === "poster" ? "poster" : "asset";
+  if (opts["mode"] && opts["mode"] !== "poster" && opts["mode"] !== "asset") {
+    console.error(`Error: --mode must be "asset" or "poster"`);
+    throw new Error("Script failed");
+  }
+  const overlayZone = opts["overlay-zone"] as
+    | "bottom"
+    | "top"
+    | "center"
+    | "none"
+    | undefined;
+  if (overlayZone && !["bottom", "top", "center", "none"].includes(overlayZone)) {
+    console.error(`Error: --overlay-zone must be bottom | top | center | none`);
+    throw new Error("Script failed");
+  }
+
   // Provider config from the resolved canvas. Gemini reads aspectRatio +
   // size tier; OpenAI maps aspectRatio onto its three output sizes.
-  const providerConfig =
-    aspectPlan || opts["quality"]
-      ? {
-          aspectRatio: aspectPlan?.aspectRatio,
-          size: aspectPlan?.imageSize,
-          quality: opts["quality"],
-        }
-      : undefined;
+  const providerConfig = {
+    aspectRatio: aspectPlan?.aspectRatio,
+    size: aspectPlan?.imageSize,
+    quality: opts["quality"],
+    mode,
+    overlayZone,
+    allowTextInImage: opts["allow-text-in-image"] === "true",
+    canvasNotes: safeAreaPromptNote(targetDims?.preset) || undefined,
+    brandStyle: brand?.promptBlock,
+  } as const;
 
   // When the provider's snapped output visibly deviates from the target
   // canvas, steer the composition so cover-fit cropping stays safe.
@@ -328,9 +387,10 @@ Options:
     if (guidance) effectivePrompt = `${prompt}\n\n${guidance}`;
   }
 
-  // Always include default style references + any extra ones
+  // Always include default style references + brand references + extras
   const referenceUrls = [
     ...DEFAULT_STYLE_REFERENCE_URLS,
+    ...(brand?.referenceImageUrls ?? []),
     ...extraReferenceUrls,
   ];
 

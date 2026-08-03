@@ -102,6 +102,8 @@ const messages = {
     imagePromptPlaceholder:
       "例如：用作标题幻灯片的主视觉。或：替换第 3 张幻灯片的人像照片。",
     imageSearchTitle: "搜索图片",
+    setAsBackground: "设为背景",
+    useAsBackground: "用作整幅背景",
     searchImagesPlaceholder: "搜索图片...",
     searchForLogosImagesIcons: "搜索徽标、图片、图标...",
     search: "搜索",

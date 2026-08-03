@@ -107,6 +107,8 @@ const messages = {
     imagePromptPlaceholder:
       "예: 제목 슬라이드의 히어로로 사용. 또는: 슬라이드 3의 인물 사진 교체.",
     imageSearchTitle: "이미지 검색",
+    setAsBackground: "배경으로 설정",
+    useAsBackground: "전체 배경으로 사용",
     searchImagesPlaceholder: "이미지 검색...",
     searchForLogosImagesIcons: "로고, 이미지, 아이콘 검색...",
     search: "검색",

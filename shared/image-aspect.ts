@@ -4,7 +4,11 @@
  * snap to the nearest supported value and report how far off it is; callers
  * absorb the residual mismatch with cover-fit cropping (`object-fit: cover`).
  */
-import { getPresetSize } from "./slide-size.js";
+import {
+  getPresetSize,
+  SIZE_PRESETS,
+  type SizePreset,
+} from "./slide-size.js";
 
 /** Aspect ratios accepted by Gemini's imageConfig.aspectRatio. */
 export const GEMINI_ASPECT_RATIOS = [
@@ -104,6 +108,35 @@ export function planForPreset(preset: string): ImageAspectPlan | null {
   const size = getPresetSize(preset);
   if (!size) return null;
   return planImageAspect(size.width, size.height);
+}
+
+/**
+ * Platform-chrome guidance for presets with a safe area (e.g. ig-story):
+ * tells the generator to keep important elements out of the covered bands.
+ * Returns "" for unknown presets or presets without a safe area.
+ */
+export function safeAreaPromptNote(preset?: string | null): string {
+  if (!preset) return "";
+  const def = SIZE_PRESETS[preset as SizePreset] as
+    | (typeof SIZE_PRESETS)[SizePreset]
+    | undefined;
+  const safeArea =
+    def && "safeArea" in def
+      ? (def.safeArea as {
+          top?: number;
+          bottom?: number;
+          left?: number;
+          right?: number;
+        })
+      : undefined;
+  if (!def || !safeArea) return "";
+  const bands: string[] = [];
+  if (safeArea.top) bands.push(`top ${safeArea.top}px`);
+  if (safeArea.bottom) bands.push(`bottom ${safeArea.bottom}px`);
+  if (safeArea.left) bands.push(`left ${safeArea.left}px`);
+  if (safeArea.right) bands.push(`right ${safeArea.right}px`);
+  if (bands.length === 0) return "";
+  return `The ${bands.join(" and ")} of the ${def.width}×${def.height} frame are covered by platform UI — keep all important visual elements out of those bands.`;
 }
 
 /**

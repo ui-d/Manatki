@@ -107,6 +107,8 @@ const messages = {
     imagePromptPlaceholder:
       "例: タイトルスライドのヒーローとして使う。または: スライド3の顔写真を置き換える。",
     imageSearchTitle: "画像を検索",
+    setAsBackground: "背景に設定",
+    useAsBackground: "全面背景として使用",
     searchImagesPlaceholder: "画像を検索...",
     searchForLogosImagesIcons: "ロゴ、画像、アイコンを検索...",
     search: "検索",

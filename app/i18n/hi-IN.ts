@@ -105,6 +105,8 @@ const messages = {
     imagePromptPlaceholder:
       "जैसे: टाइटल स्लाइड के हीरो के रूप में उपयोग करें। या: स्लाइड 3 पर हेडशॉट बदलें।",
     imageSearchTitle: "छवियां खोजें",
+    setAsBackground: "पृष्ठभूमि के रूप में सेट करें",
+    useAsBackground: "पूर्ण पृष्ठभूमि के रूप में उपयोग करें",
     searchImagesPlaceholder: "छवियां खोजें...",
     searchForLogosImagesIcons: "लोगो, छवियां, आइकन खोजें...",
     search: "खोजें",

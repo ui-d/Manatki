@@ -6,9 +6,11 @@ import type { ImageGenResponse } from "@shared/api";
 import { z } from "zod";
 
 import { DEFAULT_STYLE_REFERENCE_URLS } from "../shared/api.js";
+import { loadBrandGrounding } from "./_brand-grounding.js";
 import {
   cropGuidanceLine,
   planImageAspect,
+  safeAreaPromptNote,
   type ImageAspectPlan,
 } from "../shared/image-aspect.js";
 import {
@@ -29,7 +31,19 @@ async function urlToReferenceImage(
   url: string,
 ): Promise<ReferenceImage | null> {
   try {
-    const res = await fetch(url);
+    // SSRF guard: brand reference URLs come from stored design-system data.
+    // Block private/internal targets and refuse redirects into them.
+    const { isBlockedExtensionUrlWithDns } = await import(
+      "@agent-native/core/extensions/url-safety"
+    );
+    if (await isBlockedExtensionUrlWithDns(url)) {
+      console.warn(`[ImageGen] Blocked private/internal reference: ${url}`);
+      return null;
+    }
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(8000),
+      redirect: "manual",
+    });
     if (!res.ok) return null;
     const contentType = res.headers.get("content-type") || "image/png";
     const buffer = Buffer.from(await res.arrayBuffer());
@@ -71,6 +85,30 @@ export default defineAction({
       .enum(["low", "medium", "high"])
       .optional()
       .describe("OpenAI quality hint"),
+    mode: z
+      .enum(["asset", "poster"])
+      .optional()
+      .describe(
+        "asset (default): illustration placed into a layout. poster: full-canvas artwork that IS the finished asset background",
+      ),
+    overlayZone: z
+      .enum(["bottom", "top", "center", "none"])
+      .optional()
+      .describe(
+        "Poster-only: where HTML copy will be overlaid — that zone is kept visually calm",
+      ),
+    allowTextInImage: z
+      .boolean()
+      .optional()
+      .describe(
+        "Opt-in: render the prompt's exact text inside the image (not editable or brand-lintable afterwards)",
+      ),
+    designSystemId: z
+      .string()
+      .optional()
+      .describe(
+        "Ground style in this design system (default: deck's linked system, then workspace default)",
+      ),
   }),
   run: async (args) => {
     const prompt = args.prompt;
@@ -79,10 +117,17 @@ export default defineAction({
     }
 
     // Target canvas: explicit preset/dims → the slide's own size → none.
-    let targetDims: { width: number; height: number } | null = null;
+    let targetDims: { width: number; height: number; preset?: string } | null =
+      null;
     if (args.sizePreset) {
       const preset = getPresetSize(args.sizePreset);
-      if (preset) targetDims = { width: preset.width, height: preset.height };
+      if (preset) {
+        targetDims = {
+          width: preset.width,
+          height: preset.height,
+          preset: args.sizePreset,
+        };
+      }
     } else if (args.width != null || args.height != null) {
       if (!isValidSlideDims(args.width, args.height)) {
         throw new Error(
@@ -112,10 +157,17 @@ export default defineAction({
         if (slide) {
           slideContent = slide.content;
           if (!targetDims) {
-            targetDims = getSlideDims(
-              slide as { size?: { width: number; height: number } },
-              deck.aspectRatio as never,
-            );
+            const size = slide.size as
+              | { width?: number; height?: number; preset?: string }
+              | undefined;
+            targetDims = {
+              ...getSlideDims(
+                slide as { size?: { width: number; height: number } },
+                deck.aspectRatio as never,
+              ),
+              preset:
+                typeof size?.preset === "string" ? size.preset : undefined,
+            };
           }
         }
         deckText = deck.title ? `Deck: ${deck.title}` : undefined;
@@ -133,29 +185,38 @@ export default defineAction({
       await import("../server/handlers/image-providers/index.js");
     const provider = await getProvider(args.model || "auto");
 
-    const refImages: ReferenceImage[] = [];
+    // Brand grounding: linked/explicit/default design system contributes a
+    // style block and reference image URLs (best-effort, never blocks).
+    const brand = await loadBrandGrounding({
+      designSystemId: args.designSystemId,
+      deckId: args.deckId,
+    });
 
-    // Load default style reference images
+    const refImages: ReferenceImage[] = [];
+    const referenceUrls = [
+      ...DEFAULT_STYLE_REFERENCE_URLS,
+      ...(brand?.referenceImageUrls ?? []),
+    ];
     console.log(
-      `[ImageGen] Loading ${DEFAULT_STYLE_REFERENCE_URLS.length} reference image(s)...`,
+      `[ImageGen] Loading ${referenceUrls.length} reference image(s)...`,
     );
-    const results = await Promise.all(
-      DEFAULT_STYLE_REFERENCE_URLS.map(urlToReferenceImage),
-    );
+    const results = await Promise.all(referenceUrls.map(urlToReferenceImage));
     for (const r of results) {
       if (r) refImages.push(r);
     }
 
     const context =
       slideContent || deckText ? { slideContent, deckText } : undefined;
-    const config =
-      plan || args.quality
-        ? {
-            aspectRatio: plan?.aspectRatio,
-            size: plan?.imageSize,
-            quality: args.quality,
-          }
-        : undefined;
+    const config = {
+      aspectRatio: plan?.aspectRatio,
+      size: plan?.imageSize,
+      quality: args.quality,
+      mode: args.mode ?? "asset",
+      overlayZone: args.overlayZone,
+      allowTextInImage: args.allowTextInImage,
+      canvasNotes: safeAreaPromptNote(targetDims?.preset) || undefined,
+      brandStyle: brand?.promptBlock,
+    } as const;
     let effectivePrompt = prompt;
     if (plan) {
       const guidance = cropGuidanceLine(

@@ -104,6 +104,8 @@ const messages = {
     imagePromptPlaceholder:
       "مثال: استخدمها كصورة رئيسية لشريحة العنوان. أو: استبدل الصورة الشخصية في الشريحة 3.",
     imageSearchTitle: "بحث عن الصور",
+    setAsBackground: "تعيين كخلفية",
+    useAsBackground: "استخدام كخلفية كاملة",
     searchImagesPlaceholder: "ابحث عن صور...",
     searchForLogosImagesIcons: "ابحث عن شعارات وصور وأيقونات...",
     search: "بحث",

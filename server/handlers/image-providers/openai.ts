@@ -28,7 +28,7 @@ export class OpenAIProvider implements ImageProvider {
     if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
 
     // OpenAI doesn't support reference images natively — fold style description into prompt
-    const fullPrompt = buildOpenAIPrompt(prompt, referenceImages, context);
+    const fullPrompt = buildOpenAIPrompt(prompt, referenceImages, context, config);
 
     // Map config to OpenAI parameters
     const size = mapSize(config?.aspectRatio, config?.size);
@@ -214,11 +214,18 @@ function buildOpenAIPrompt(
   prompt: string,
   referenceImages: ReferenceImage[],
   context?: { slideContent?: string; deckText?: string },
+  config?: ImageProviderConfig,
 ): string {
   let fullPrompt = prompt;
 
-  // Since OpenAI doesn't support reference images, add style guidance in text
-  if (referenceImages.length > 0) {
+  // Since OpenAI doesn't support reference images, add style guidance in
+  // text: the linked design system's brand block when supplied, otherwise
+  // the generic dark-tech fallback (only when style refs were intended).
+  if (config?.brandStyle) {
+    fullPrompt = `${config.brandStyle}
+
+Subject: ${prompt}`;
+  } else if (referenceImages.length > 0) {
     fullPrompt = `Create a professional, modern illustration for a presentation slide. The style should be: dark background with clean, minimal design. Use a sophisticated color palette with dark tones and subtle accent colors. No glow effects, no neon, no bloom — keep lighting flat and subtle. Match a premium tech brand aesthetic.
 
 Subject: ${prompt}`;
@@ -239,9 +246,27 @@ Subject: ${prompt}`;
     fullPrompt += `\n\nNon-renderable background context. Use only to understand topic and mood; do not copy or display any of these words, HTML, labels, specs, or prompt text in the image:\n${nonRenderable.join("\n")}`;
   }
 
-  // Ensure output is just the image, not a slide mockup
-  fullPrompt +=
-    "\n\nIMPORTANT: Generate ONLY the illustration/graphic — NOT a slide mockup. No presentation borders, no title overlays. Do not render visible words, letters, UI labels, captions, specs, or prompt text unless the user's prompt explicitly asks for exact text.";
+  // Output contract: full-canvas artwork in poster mode, raw asset otherwise.
+  if (config?.mode === "poster") {
+    fullPrompt +=
+      "\n\nIMPORTANT: Generate a complete FULL-CANVAS visual composition that fills the entire frame edge-to-edge — this IS the finished background artwork for the asset, not an element placed into a layout. No slide frame, no presentation border, no mockup chrome.";
+    if (config.overlayZone && config.overlayZone !== "none") {
+      fullPrompt += ` Keep the ${config.overlayZone} third of the frame visually calm (low detail, low contrast) — headline text will be overlaid there as HTML.`;
+    }
+    if (config.canvasNotes) {
+      fullPrompt += ` ${config.canvasNotes}`;
+    }
+  } else {
+    fullPrompt +=
+      "\n\nIMPORTANT: Generate ONLY the illustration/graphic — NOT a slide mockup. No presentation borders, no title overlays.";
+  }
+  if (config?.allowTextInImage) {
+    fullPrompt +=
+      " The prompt includes exact text to render inside the image: spell it exactly as given, letter for letter, and render no other words.";
+  } else {
+    fullPrompt +=
+      " Do not render visible words, letters, UI labels, captions, specs, or prompt text unless the user's prompt explicitly asks for exact text.";
+  }
 
   return fullPrompt;
 }

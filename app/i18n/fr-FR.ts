@@ -109,6 +109,8 @@ const messages = {
     imagePromptPlaceholder:
       "ex. Utiliser comme visuel principal de la diapositive de titre. Ou : remplacer le portrait sur la diapositive 3.",
     imageSearchTitle: "Rechercher des images",
+    setAsBackground: "Définir comme arrière-plan",
+    useAsBackground: "Utiliser comme arrière-plan intégral",
     searchImagesPlaceholder: "Rechercher des images...",
     searchForLogosImagesIcons: "Rechercher des logos, images, icônes...",
     search: "Rechercher",

@@ -29,6 +29,7 @@ export default function ImageGenPanel({
 }: ImageGenPanelProps) {
   const t = useT();
   const [prompt, setPrompt] = useState("");
+  const [useAsBackground, setUseAsBackground] = useState(false);
   const [disabledDefaults, setDisabledDefaults] = useState<Set<number>>(
     new Set(),
   );
@@ -108,8 +109,18 @@ export default function ImageGenPanel({
       );
     }
 
+    if (useAsBackground) {
+      contextParts.push(
+        '\nThe image is meant as the slide\'s FULL-BLEED BACKGROUND: call generate-image-api with mode: "poster" (and overlayZone matching where the slide\'s copy sits), then insert the chosen image as a full-bleed background layer per the slide-images skill (absolute inset-0, width/height 100%, object-fit cover, z-index -1, scrim over it if text overlays the imagery) instead of into a placeholder.',
+      );
+    }
+
     contextParts.push(
-      '\nGenerate 3 variations. Show each as an inline rendered image preview using markdown image syntax (![Variation 1](url)), not a plain text link — the chat renders "![]()" as an actual image but "[]()" as a bare link. Let the user pick their favorite, then insert the chosen generated image into the slide content in the right place.',
+      `\nGenerate 3 variations. Show each as an inline rendered image preview using markdown image syntax (![Variation 1](url)), not a plain text link — the chat renders "![]()" as an actual image but "[]()" as a bare link. Let the user pick their favorite, then ${
+        useAsBackground
+          ? "set the chosen image as the slide's full-bleed background layer."
+          : "insert the chosen generated image into the slide content in the right place."
+      }`,
     );
 
     const label = prompt.trim()
@@ -212,6 +223,17 @@ export default function ImageGenPanel({
             }
           }}
         />
+
+        {/* Full-background toggle */}
+        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={useAsBackground}
+            onChange={(e) => setUseAsBackground(e.target.checked)}
+            className="accent-[#609FF8]"
+          />
+          {t("raw.useAsBackground")}
+        </label>
 
         {/* Generate button */}
         <button
